@@ -57,17 +57,34 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
     cursor: pointer;
-    padding: 4px 12px;
+    padding: 4px 10px;
+    min-width: 54px;
+    border-radius: 14px;
+    transition: color .18s ease, background .18s ease, transform .18s ease;
     border: none;
     background: none;
     color: var(--ink-light);
     font-size: 11px;
     font-family: inherit;
   }
-  .nav-item.active { color: var(--accent); }
-  .nav-icon { font-size: 22px; }
+  .nav-item.active { color: var(--accent); background: #FCE9EF; }
+  .nav-item:active { transform: scale(.96); }
+  .nav-icon {
+    width: 34px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+  .nav-icon img { width: 34px; height: 34px; object-fit: contain; }
+  .nav-icon svg { width: 29px; height: 29px; overflow: visible; }
+  .nav-icon .tool-fill { fill: #F8DCE5; }
+  .nav-icon .tool-line { fill: none; stroke: #815A5D; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .nav-icon .tool-accent { fill: #E94F83; }
+  .nav-item.active .nav-icon { animation: nav-pop .24s ease-out; }
+  @keyframes nav-pop { 0% { transform: scale(.88); } 70% { transform: scale(1.08); } 100% { transform: scale(1); } }
 
   /* ===== 页面切换 ===== */
   .page { display: none; padding: 16px; }
@@ -966,23 +983,33 @@
 <!-- 底部导航 -->
 <div class="bottom-nav">
   <button class="nav-item active" onclick="switchPage('home', this)">
-    <span class="nav-icon">🏠</span>
+    <span class="nav-icon"><img id="navWorkerIcon" alt=""></span>
     <span>小票</span>
   </button>
   <button class="nav-item" onclick="switchPage('cal', this)">
-    <span class="nav-icon">📅</span>
+    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 32 32">
+      <rect class="tool-fill" x="4" y="6" width="24" height="22" rx="5"/><path class="tool-line" d="M9 4v5M23 4v5M5 12h22"/>
+      <path class="tool-line" d="M10 17h3M17 17h3M10 22h3"/><path class="tool-accent" d="M21 20.5l2 2 4-5"/>
+    </svg></span>
     <span>日历</span>
   </button>
   <button class="nav-item" onclick="switchPage('goal', this)">
-    <span class="nav-icon">🥯</span>
+    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 32 32">
+      <path class="tool-fill" d="M7 13h18l-1.7 13H8.7L7 13z"/><path class="tool-line" d="M6 13h20M10 10c0-2 1.2-3 1.2-5M16 10c0-2 1.2-3 1.2-5M22 10c0-2 1.2-3 1.2-5"/>
+      <circle class="tool-accent" cx="16" cy="19" r="3.4"/><path d="M16 17.2v3.6M14.8 18.2h2.4" stroke="#fff" stroke-width="1.1" stroke-linecap="round"/>
+    </svg></span>
     <span>画饼</span>
   </button>
   <button class="nav-item" onclick="switchPage('todo', this)">
-    <span class="nav-icon">📋</span>
+    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 32 32">
+      <rect class="tool-fill" x="6" y="6" width="20" height="23" rx="4"/><path class="tool-line" d="M12 6V4h8v4h-8zM12 14h9M12 19h9M12 24h6"/><path class="tool-accent" d="M8 14l1.2 1.2L11 13"/>
+    </svg></span>
     <span>待办</span>
   </button>
   <button class="nav-item" onclick="switchPage('settings', this)">
-    <span class="nav-icon">⚙️</span>
+    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 32 32">
+      <rect class="tool-fill" x="4" y="7" width="24" height="16" rx="3"/><path class="tool-line" d="M7 11h18M8 15h2M13 15h2M18 15h2M23 15h1M8 19h2M13 19h2M18 19h2M23 19h1M11 27h10l-1.5-4h-7z"/><path class="tool-accent" d="M12 11h8"/>
+    </svg></span>
     <span>我的</span>
   </button>
 </div>
@@ -1021,6 +1048,7 @@
 
 <script>
 const WORKER_IMAGE_SRC = document.querySelector('#officeWorker img').src;
+document.getElementById('navWorkerIcon').src = WORKER_IMAGE_SRC;
 // ===== 状态 =====
 let state = {
   monthlySalary: 15000,
