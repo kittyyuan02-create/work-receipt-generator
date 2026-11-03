@@ -853,7 +853,7 @@
       </div>
     </div>
 
-    <button class="share-export" onclick="exportTodayReceipt()">📸 生成今日打工分享图</button>
+    <button class="share-export" onclick="exportTodayReceipt()">📸 生成今日长小票图片</button>
     <div class="share-note">图片在本地生成；发朋友圈前记得检查展示内容</div>
 
     <button class="clock-btn start" id="clockBtn" onclick="toggleClock()">▶ 上班打卡</button>
@@ -1157,54 +1157,80 @@ function fmtTime(d) {
 
 // ===== 分享小票图片（纯本地 Canvas，不上传任何数据） =====
 function exportTodayReceipt() {
-  const width = 1080, height = 1440, canvas = document.createElement('canvas');
-  canvas.width = width; canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  const now = new Date(), dateLabel = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 ${['周日','周一','周二','周三','周四','周五','周六'][now.getDay()]}`;
+  const width = 1080, now = new Date();
   const done = state.todos.filter(item => item.done);
-  const slackValue = state.slackRecords.reduce((sum, record) => sum + record.minutes * hourlyRate() / 60, 0);
+  const records = state.slackRecords || [];
+  const slackRows = Math.max(records.length, 1), taskRows = Math.max(done.length, 1);
+  const height = Math.max(2050, 1800 + slackRows * 56 + taskRows * 48);
+  const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  const dateLabel = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 ${['周日','周一','周二','周三','周四','周五','周六'][now.getDay()]}`;
+  const slackValue = records.reduce((sum, record) => sum + record.minutes * hourlyRate() / 60, 0);
   const lunchMinutes = (state.lunchRecords || []).reduce((sum, record) => sum + record.minutes, 0) + (state.currentLunch ? (Date.now() - new Date(state.currentLunch.start)) / 60000 : 0);
   const lunchValue = lunchMinutes * hourlyRate() / 60;
   const duration = workDur();
+  const textFont = '26px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif';
+  const boldFont = '700 32px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif';
   const clip = (text, maxWidth) => {
     let out = String(text || '');
     while (out && ctx.measureText(out).width > maxWidth) out = out.slice(0, -1);
-    return out === text ? out : out.slice(0, Math.max(0, out.length - 1)) + '…';
+    return out.length < String(text || '').length ? out.slice(0, Math.max(0, out.length - 1)) + '…' : out;
   };
-  const roundRect = (x,y,w,h,r,color) => { ctx.fillStyle=color; ctx.beginPath(); ctx.roundRect(x,y,w,h,r); ctx.fill(); };
+  const paperRect = (x,y,w,h,r,color) => { ctx.fillStyle=color; ctx.beginPath(); ctx.roundRect(x,y,w,h,r); ctx.fill(); };
+  const line = y => { ctx.fillStyle='#E8CCD2'; ctx.fillRect(155,y,770,2); };
   const draw = () => {
-    const bg = ctx.createLinearGradient(0,0,width,height); bg.addColorStop(0,'#F8DCE7'); bg.addColorStop(1,'#F6E9D5'); ctx.fillStyle=bg; ctx.fillRect(0,0,width,height);
-    ctx.fillStyle='rgba(255,255,255,.28)'; ctx.beginPath(); ctx.arc(960,130,170,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(90,1320,130,0,Math.PI*2); ctx.fill();
-    ctx.textAlign='center'; ctx.fillStyle='#73434F'; ctx.font='700 54px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('打工人的今日小票',width/2,112);
-    ctx.fillStyle='#9D7880'; ctx.font='28px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText(dateLabel,width/2,160);
-    roundRect(70,205,940,1125,30,'#FFFCF8');
-    ctx.fillStyle='#E9A8BC'; ctx.fillRect(70,205,12,1125);
-    ctx.textAlign='center'; ctx.fillStyle='#80505B'; ctx.font='700 38px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('今日认真工作，收入持续到账',540,280);
-    ctx.textAlign='center'; ctx.fillStyle='#E64E7D'; ctx.font='700 78px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText(`¥${todayIncome().toFixed(2)}`,540,400);
-    ctx.fillStyle='#A27D85'; ctx.font='26px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('今日已赚',540,445);
-    const mascot = document.querySelector('#officeWorker img');
-    if (mascot && mascot.complete && mascot.naturalWidth) ctx.drawImage(mascot,400,465,280,220);
-    roundRect(115,700,850,2,1,'#E8CCD2');
-    ctx.textAlign='left'; ctx.fillStyle='#80505B'; ctx.font='700 30px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('今日打工数据',130,765);
-    ctx.font='26px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillStyle='#755C5E';
-    ctx.fillText(`在岗时长  ${m2text(duration)}`,140,825); ctx.fillText(`午休计时  ${m2text(lunchMinutes)} · ¥${lunchValue.toFixed(2)}`,580,825);
-    ctx.fillText(`带薪摸鱼  ¥${slackValue.toFixed(2)}`,140,880); ctx.fillText(`完成待办  ${done.length} 件`,580,880);
-    ctx.fillText(`打卡时间  ${state.clockIn ? fmtTime(state.clockIn) : '还没打卡'}`,140,935);
-    roundRect(130,970,820,2,1,'#E8CCD2');
-    ctx.fillStyle='#80505B'; ctx.font='700 30px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('今天完成了',130,1020);
-    ctx.font='25px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillStyle='#755C5E';
-    const shown = done.slice(0,4);
-    if (!shown.length) ctx.fillText('待办还没勾选，明天继续加油。',145,1070);
-    shown.forEach((item,i) => { const y=1070+i*38; ctx.fillStyle='#E64E7D'; ctx.fillText('✓',150,y); ctx.fillStyle='#755C5E'; ctx.fillText(clip(item.text,740),190,y); });
-    if (done.length>4) { ctx.fillStyle='#9D7880'; ctx.fillText(`还有 ${done.length-4} 项完成事项`,190,1070+4*38); }
-    roundRect(130,1260,820,1,1,'#E8CCD2');
-    ctx.textAlign='center'; ctx.fillStyle='#80505B'; ctx.font='700 28px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('上班不是为了梦想，是为了生活。',540,1300);
-    ctx.fillStyle='#AE9096'; ctx.font='20px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('数据仅本地生成 · 打工人电子生存指南',540,1350);
+    const bg=ctx.createLinearGradient(0,0,width,height); bg.addColorStop(0,'#F8DCE7'); bg.addColorStop(1,'#F6E9D5'); ctx.fillStyle=bg; ctx.fillRect(0,0,width,height);
+    const paperX=100, paperW=880, paperTop=95, paperBottom=height-95;
+    ctx.shadowColor='rgba(110,70,80,.18)'; ctx.shadowBlur=28; ctx.shadowOffsetY=10;
+    paperRect(paperX,paperTop,paperW,paperBottom-paperTop,8,'#FFFCF8');
+    ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0;
+    // 热敏纸齿孔边
+    ctx.fillStyle='#F8DCE7';
+    for(let x=paperX+10; x<paperX+paperW; x+=24) { ctx.beginPath(); ctx.arc(x,paperTop,8,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(x,paperBottom,8,0,Math.PI*2); ctx.fill(); }
+    ctx.textAlign='center'; ctx.fillStyle='#70444F'; ctx.font='700 54px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('打工人电子小票',540,180);
+    ctx.fillStyle='#9D7880'; ctx.font='27px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText(dateLabel,540,225);
+    ctx.fillStyle='#80505B'; ctx.font='700 34px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('上班不是为了梦想，是为了生活。',540,292);
+    const mascot=document.querySelector('#officeWorker img');
+    if(mascot && mascot.complete && mascot.naturalWidth) ctx.drawImage(mascot,390,320,300,240);
+    ctx.fillStyle='#A27D85'; ctx.font='26px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('今日已赚',540,620);
+    ctx.fillStyle='#E64E7D'; ctx.font='700 84px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText(`¥${todayIncome().toFixed(2)}`,540,715);
+    line(765);
+    ctx.textAlign='left'; ctx.fillStyle='#80505B'; ctx.font=boldFont; ctx.fillText('今日打工数据',155,825);
+    ctx.font=textFont; ctx.fillStyle='#755C5E';
+    ctx.fillText(`在岗时长：${m2text(duration)}`,165,885);
+    ctx.fillText(`打卡时间：${state.clockIn ? fmtTime(state.clockIn) : '还没打卡'}`,165,940);
+    ctx.fillText(`午休时长：${m2text(lunchMinutes)}　午休收入：¥${lunchValue.toFixed(2)}`,165,995);
+    ctx.fillText(`带薪摸鱼收入：¥${slackValue.toFixed(2)}`,165,1050);
+    line(1090);
+    ctx.fillStyle='#80505B'; ctx.font=boldFont; ctx.fillText('带薪摸鱼明细',155,1150);
+    ctx.font=textFont;
+    let y=1205;
+    if(!records.length) { ctx.fillStyle='#9D7880'; ctx.fillText('今天还没有摸鱼记录',165,y); y+=56; }
+    records.forEach(record=>{
+      const names={toilet:'带薪如厕',phone:'刷手机',chat:'闲聊',walk:'到处溜达'};
+      const icons={toilet:'🚽',phone:'📱',chat:'💬',walk:'🚶'};
+      const amt=record.minutes*hourlyRate()/60;
+      ctx.fillStyle='#755C5E'; ctx.fillText(`${icons[record.type]||'🐟'} ${names[record.type]||'带薪摸鱼'}　${m2text(record.minutes)}`,165,y);
+      ctx.textAlign='right'; ctx.fillStyle='#E64E7D'; ctx.fillText(`+¥${amt.toFixed(2)}`,915,y); ctx.textAlign='left';
+      y+=56;
+    });
+    line(y+4); y+=66;
+    ctx.fillStyle='#80505B'; ctx.font=boldFont; ctx.fillText(`完成事项　${done.length} 件`,155,y); y+=56;
+    ctx.font=textFont;
+    if(!done.length) { ctx.fillStyle='#9D7880'; ctx.fillText('待办还没勾选，明天继续加油。',165,y); y+=48; }
+    done.forEach((item,i)=>{
+      ctx.fillStyle='#E64E7D'; ctx.fillText('✓',165,y);
+      ctx.fillStyle='#755C5E'; ctx.fillText(clip(item.text,730),205,y);
+      y+=48;
+    });
+    line(y+10); y+=85;
+    ctx.textAlign='center'; ctx.fillStyle='#80505B'; ctx.font='700 28px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('摸鱼可以，账还是要算清楚。',540,y);
+    ctx.fillStyle='#AE9096'; ctx.font='20px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('数据仅本地生成 · 打工人电子生存指南',540,y+48);
     const link=document.createElement('a'); link.download=`打工小票-${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}.png`;
-    try { link.href=canvas.toDataURL('image/png'); link.click(); toast('分享图片已生成，记得检查图片内容'); }
+    try { link.href=canvas.toDataURL('image/png'); link.click(); toast('长小票图片已生成，记得检查图片内容'); }
     catch(e) { toast('图片生成失败，请重试'); }
   };
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw); else draw();
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(draw); else draw();
 }
 
 // ===== 页面切换 =====
