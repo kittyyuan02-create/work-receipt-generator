@@ -306,6 +306,7 @@
   /* 底部 */
   .receipt-footer { text-align: center; margin-top: 20px; padding-top: 14px; }
   .footer-quote { font-size: 12px; color: #5D4E37; line-height: 1.6; margin-bottom: 14px; }
+  .footer-todo-summary { font-size:11px; color:var(--ink-light); margin:-6px 0 12px; }
   .barcode {
     height: 30px;
     background: repeating-linear-gradient(90deg, var(--ink) 0, var(--ink) 2px, transparent 2px, transparent 4px, var(--ink) 4px, var(--ink) 6px, transparent 6px, transparent 9px);
@@ -730,6 +731,21 @@
     margin-top: 8px;
     box-shadow: 1px 1px 4px rgba(0,0,0,0.08);
   }
+  .share-export {
+    width: 100%;
+    border: 1px solid #E9A8BC;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #FFF9FA, #FCE9EF);
+    color: #9A5268;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 14px;
+    margin: 0 0 12px;
+    cursor: pointer;
+    box-shadow: 0 3px 10px rgba(120,70,80,.08);
+  }
+  .share-note { text-align:center; font-size:10px; color:var(--ink-light); margin:-6px 0 12px; }
 
   /* 小鱼干计数 */
   .fish-count {
@@ -825,10 +841,14 @@
 
       <div class="receipt-footer">
         <div class="footer-quote" id="footerQuote">踏踏实实上了一天班，辛苦啦，给自己点个赞！</div>
+        <div class="footer-todo-summary" id="footerTodoSummary">今天完成了 0 件小事</div>
         <div class="barcode"></div>
         <div class="barcode-num">今日打工小票</div>
       </div>
     </div>
+
+    <button class="share-export" onclick="exportTodayReceipt()">📸 生成今日打工分享图</button>
+    <div class="share-note">图片在本地生成；发朋友圈前记得检查展示内容</div>
 
     <button class="clock-btn start" id="clockBtn" onclick="toggleClock()">▶ 上班打卡</button>
   </div>
@@ -1112,8 +1132,10 @@ function m2text(mins) {
   return h === 0 ? m+'分钟' : h+'小时'+(m>0?m+'分钟':'');
 }
 function todayIncome() {
-  if (!state.isWorking || !state.clockIn) return 0;
-  return (new Date() - state.clockIn) / 1000 / 60 * hourlyRate() / 60;
+  if (!state.clockIn) return 0;
+  const end = state.clockOut || (state.isWorking ? new Date() : null);
+  if (!end) return 0;
+  return Math.max(0, (end - state.clockIn) / 1000 / 60 * hourlyRate() / 60);
 }
 function workDur() {
   if (!state.clockIn) return 0;
@@ -1122,6 +1144,55 @@ function workDur() {
 }
 function fmtTime(d) {
   return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+
+// ===== 分享小票图片（纯本地 Canvas，不上传任何数据） =====
+function exportTodayReceipt() {
+  const width = 1080, height = 1440, canvas = document.createElement('canvas');
+  canvas.width = width; canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  const now = new Date(), dateLabel = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 ${['周日','周一','周二','周三','周四','周五','周六'][now.getDay()]}`;
+  const done = state.todos.filter(item => item.done);
+  const slackValue = state.slackRecords.reduce((sum, record) => sum + record.minutes * hourlyRate() / 60, 0);
+  const duration = workDur();
+  const clip = (text, maxWidth) => {
+    let out = String(text || '');
+    while (out && ctx.measureText(out).width > maxWidth) out = out.slice(0, -1);
+    return out === text ? out : out.slice(0, Math.max(0, out.length - 1)) + '…';
+  };
+  const roundRect = (x,y,w,h,r,color) => { ctx.fillStyle=color; ctx.beginPath(); ctx.roundRect(x,y,w,h,r); ctx.fill(); };
+  const draw = () => {
+    const bg = ctx.createLinearGradient(0,0,width,height); bg.addColorStop(0,'#F8DCE7'); bg.addColorStop(1,'#F6E9D5'); ctx.fillStyle=bg; ctx.fillRect(0,0,width,height);
+    ctx.fillStyle='rgba(255,255,255,.28)'; ctx.beginPath(); ctx.arc(960,130,170,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(90,1320,130,0,Math.PI*2); ctx.fill();
+    ctx.textAlign='center'; ctx.fillStyle='#73434F'; ctx.font='700 54px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('打工人的今日小票',width/2,112);
+    ctx.fillStyle='#9D7880'; ctx.font='28px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText(dateLabel,width/2,160);
+    roundRect(70,205,940,1125,30,'#FFFCF8');
+    ctx.fillStyle='#E9A8BC'; ctx.fillRect(70,205,12,1125);
+    ctx.textAlign='center'; ctx.fillStyle='#80505B'; ctx.font='700 38px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('今日认真工作，收入持续到账',540,280);
+    ctx.textAlign='center'; ctx.fillStyle='#E64E7D'; ctx.font='700 78px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText(`¥${todayIncome().toFixed(2)}`,540,400);
+    ctx.fillStyle='#A27D85'; ctx.font='26px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('今日已赚',540,445);
+    const mascot = document.querySelector('#officeWorker img');
+    if (mascot && mascot.complete && mascot.naturalWidth) ctx.drawImage(mascot,400,465,280,220);
+    roundRect(115,700,850,2,1,'#E8CCD2');
+    ctx.textAlign='left'; ctx.fillStyle='#80505B'; ctx.font='700 30px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('今日打工数据',130,765);
+    ctx.font='26px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillStyle='#755C5E';
+    ctx.fillText(`在岗时长  ${m2text(duration)}`,140,825); ctx.fillText(`带薪摸鱼  ¥${slackValue.toFixed(2)}`,580,825);
+    ctx.fillText(`打卡时间  ${state.clockIn ? fmtTime(state.clockIn) : '还没打卡'}`,140,880); ctx.fillText(`完成待办  ${done.length} 件`,580,880);
+    roundRect(130,925,820,2,1,'#E8CCD2');
+    ctx.fillStyle='#80505B'; ctx.font='700 30px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('今天完成了',130,985);
+    ctx.font='25px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillStyle='#755C5E';
+    const shown = done.slice(0,5);
+    if (!shown.length) ctx.fillText('待办还没勾选，明天继续加油。',145,1040);
+    shown.forEach((item,i) => { const y=1040+i*48; ctx.fillStyle='#E64E7D'; ctx.fillText('✓',150,y); ctx.fillStyle='#755C5E'; ctx.fillText(clip(item.text,740),190,y); });
+    if (done.length>5) { ctx.fillStyle='#9D7880'; ctx.fillText(`还有 ${done.length-5} 项完成事项`,190,1040+5*48); }
+    roundRect(130,1245,820,1,1,'#E8CCD2');
+    ctx.textAlign='center'; ctx.fillStyle='#80505B'; ctx.font='700 28px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('上班不是为了梦想，是为了生活。',540,1295);
+    ctx.fillStyle='#AE9096'; ctx.font='20px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('数据仅本地生成 · 打工人电子生存指南',540,1350);
+    const link=document.createElement('a'); link.download=`打工小票-${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}.png`;
+    try { link.href=canvas.toDataURL('image/png'); link.click(); toast('分享图片已生成，记得检查图片内容'); }
+    catch(e) { toast('图片生成失败，请重试'); }
+  };
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw); else draw();
 }
 
 // ===== 页面切换 =====
@@ -1144,6 +1215,7 @@ function renderHome() {
 
   const moods = {1:'周一了，新的一周开始熬',2:'周二，距离周末还有漫长的四天',3:'周三了，周中就是最疲惫的时候',4:'周四了，离周末只差一个周五',5:'周五了！今天必须准时下班',6:'周六，怎么还要处理工作消息',0:'周日，明天又要上班了...'};
   document.getElementById('moodText').textContent = moods[now.getDay()];
+  document.getElementById('footerTodoSummary').textContent = `今天完成了 ${state.todos.filter(item => item.done).length} 件小事`;
 
   document.getElementById('workDur').textContent = m2text(workDur());
   document.getElementById('todayMoney').textContent = '¥' + todayIncome().toFixed(2);
