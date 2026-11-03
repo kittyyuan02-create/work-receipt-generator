@@ -746,6 +746,14 @@
     box-shadow: 0 3px 10px rgba(120,70,80,.08);
   }
   .share-note { text-align:center; font-size:10px; color:var(--ink-light); margin:-6px 0 12px; }
+  .activity-btn {
+    width:100%; border:1px solid #E4C3CB; border-radius:9px; padding:10px 12px;
+    background:#FFF8FA; color:#96556A; font:inherit; font-size:12px; font-weight:700; cursor:pointer;
+    margin:4px 0 8px;
+  }
+  .activity-btn.active { color:white; background:var(--accent); border-color:var(--accent); }
+  .activity-btn.slack-active { color:white; background:var(--blue); border-color:var(--blue); }
+  .activity-btn:disabled { opacity:.55; cursor:not-allowed; }
 
   /* 小鱼干计数 */
   .fish-count {
@@ -813,12 +821,9 @@
 
       <div class="sec-label">午休与饮品</div>
       <div id="homeDrinkList">
-        <div class="drink-row">
-          <span class="drink-name">🍚 午休 12:00→13:00</span>
-          <span class="drink-mins">1小时</span>
-          <span class="drink-cost">不计薪</span>
-        </div>
+        <div class="drink-row" id="lunchSummary"></div>
       </div>
+      <button class="activity-btn" id="lunchControlBtn" onclick="toggleLunch()">▶ 开始午休计时</button>
       <button class="add-btn" onclick="openDrinkModal()">+ 记一杯奶茶/咖啡</button>
 
       <hr class="divider">
@@ -829,6 +834,7 @@
       </div>
       <div id="homeSlackList"></div>
       <div class="sticker" id="slackSticker">摸鱼赚了 ¥0</div>
+      <button class="activity-btn" id="slackControlBtn" onclick="toggleSlackControl()">▶ 开始带薪摸鱼</button>
 
       <hr class="divider">
 
@@ -1097,8 +1103,11 @@ let state = {
   ],
   fish: 17,
   currentSlack: null,
+  lunchRecords: [],
+  currentLunch: null,
   timerInt: null,
   slackTimerInt: null,
+  lunchTimerInt: null,
   calOffset: 0,
   todoFilter: 'all'
 };
@@ -1154,6 +1163,8 @@ function exportTodayReceipt() {
   const now = new Date(), dateLabel = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 ${['周日','周一','周二','周三','周四','周五','周六'][now.getDay()]}`;
   const done = state.todos.filter(item => item.done);
   const slackValue = state.slackRecords.reduce((sum, record) => sum + record.minutes * hourlyRate() / 60, 0);
+  const lunchMinutes = (state.lunchRecords || []).reduce((sum, record) => sum + record.minutes, 0) + (state.currentLunch ? (Date.now() - new Date(state.currentLunch.start)) / 60000 : 0);
+  const lunchValue = lunchMinutes * hourlyRate() / 60;
   const duration = workDur();
   const clip = (text, maxWidth) => {
     let out = String(text || '');
@@ -1176,17 +1187,18 @@ function exportTodayReceipt() {
     roundRect(115,700,850,2,1,'#E8CCD2');
     ctx.textAlign='left'; ctx.fillStyle='#80505B'; ctx.font='700 30px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('今日打工数据',130,765);
     ctx.font='26px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillStyle='#755C5E';
-    ctx.fillText(`在岗时长  ${m2text(duration)}`,140,825); ctx.fillText(`带薪摸鱼  ¥${slackValue.toFixed(2)}`,580,825);
-    ctx.fillText(`打卡时间  ${state.clockIn ? fmtTime(state.clockIn) : '还没打卡'}`,140,880); ctx.fillText(`完成待办  ${done.length} 件`,580,880);
-    roundRect(130,925,820,2,1,'#E8CCD2');
-    ctx.fillStyle='#80505B'; ctx.font='700 30px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('今天完成了',130,985);
+    ctx.fillText(`在岗时长  ${m2text(duration)}`,140,825); ctx.fillText(`午休计时  ${m2text(lunchMinutes)} · ¥${lunchValue.toFixed(2)}`,580,825);
+    ctx.fillText(`带薪摸鱼  ¥${slackValue.toFixed(2)}`,140,880); ctx.fillText(`完成待办  ${done.length} 件`,580,880);
+    ctx.fillText(`打卡时间  ${state.clockIn ? fmtTime(state.clockIn) : '还没打卡'}`,140,935);
+    roundRect(130,970,820,2,1,'#E8CCD2');
+    ctx.fillStyle='#80505B'; ctx.font='700 30px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('今天完成了',130,1020);
     ctx.font='25px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillStyle='#755C5E';
-    const shown = done.slice(0,5);
-    if (!shown.length) ctx.fillText('待办还没勾选，明天继续加油。',145,1040);
-    shown.forEach((item,i) => { const y=1040+i*48; ctx.fillStyle='#E64E7D'; ctx.fillText('✓',150,y); ctx.fillStyle='#755C5E'; ctx.fillText(clip(item.text,740),190,y); });
-    if (done.length>5) { ctx.fillStyle='#9D7880'; ctx.fillText(`还有 ${done.length-5} 项完成事项`,190,1040+5*48); }
-    roundRect(130,1245,820,1,1,'#E8CCD2');
-    ctx.textAlign='center'; ctx.fillStyle='#80505B'; ctx.font='700 28px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('上班不是为了梦想，是为了生活。',540,1295);
+    const shown = done.slice(0,4);
+    if (!shown.length) ctx.fillText('待办还没勾选，明天继续加油。',145,1070);
+    shown.forEach((item,i) => { const y=1070+i*38; ctx.fillStyle='#E64E7D'; ctx.fillText('✓',150,y); ctx.fillStyle='#755C5E'; ctx.fillText(clip(item.text,740),190,y); });
+    if (done.length>4) { ctx.fillStyle='#9D7880'; ctx.fillText(`还有 ${done.length-4} 项完成事项`,190,1070+4*38); }
+    roundRect(130,1260,820,1,1,'#E8CCD2');
+    ctx.textAlign='center'; ctx.fillStyle='#80505B'; ctx.font='700 28px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('上班不是为了梦想，是为了生活。',540,1300);
     ctx.fillStyle='#AE9096'; ctx.font='20px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'; ctx.fillText('数据仅本地生成 · 打工人电子生存指南',540,1350);
     const link=document.createElement('a'); link.download=`打工小票-${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}.png`;
     try { link.href=canvas.toDataURL('image/png'); link.click(); toast('分享图片已生成，记得检查图片内容'); }
@@ -1241,10 +1253,12 @@ function renderHome() {
 
   // 饮品
   const drEl = document.getElementById('homeDrinkList');
+  const lunchMins = (state.lunchRecords || []).reduce((sum, r) => sum + r.minutes, 0) + (state.currentLunch ? (Date.now() - new Date(state.currentLunch.start)) / 60000 : 0);
+  const lunchPay = lunchMins * hourlyRate() / 60;
   drEl.innerHTML = `<div class="drink-row">
-    <span class="drink-name">🍚 午休 12:00→13:00</span>
-    <span class="drink-mins">1小时</span>
-    <span class="drink-cost">不计薪</span>
+    <span class="drink-name">🍚 午休</span>
+    <span class="drink-mins">${m2text(lunchMins)}</span>
+    <span class="drink-cost">约赚 ¥${lunchPay.toFixed(2)}</span>
   </div>`;
   state.drinks.forEach(d => {
     const mins = Math.round(d.price / hourlyRate() * 60);
@@ -1270,6 +1284,7 @@ function renderHome() {
   });
   document.getElementById('slackTotal').textContent = '¥' + sTotal.toFixed(2);
   document.getElementById('slackSticker').textContent = `摸鱼赚了 ¥${Math.round(sTotal)}`;
+  updateActivityControls();
 
   // 画饼
   if (state.goals.length > 0) {
@@ -1395,22 +1410,73 @@ function pickDrink(name, price) {
 }
 
 // ===== 摸鱼 =====
-function openSlackModal() { document.getElementById('slackModal').classList.add('active'); }
+function updateActivityControls() {
+  const lunchBtn = document.getElementById('lunchControlBtn');
+  const slackBtn = document.getElementById('slackControlBtn');
+  const otherActive = state.currentSlack && state.currentSlack.type !== 'lunch';
+  lunchBtn.textContent = state.currentLunch ? '■ 结束午休计时' : (otherActive ? '正在摸鱼，结束后可开始午休' : '▶ 开始午休计时');
+  lunchBtn.classList.toggle('active', !!state.currentLunch);
+  lunchBtn.disabled = !!otherActive;
+  slackBtn.textContent = state.currentSlack && state.currentSlack.type !== 'lunch'
+    ? `■ 结束${slackActivityName(state.currentSlack.type)}`
+    : state.currentLunch ? '午休计时中…' : '▶ 开始带薪摸鱼';
+  slackBtn.classList.toggle('slack-active', !!(state.currentSlack && state.currentSlack.type !== 'lunch'));
+  slackBtn.disabled = !!state.currentLunch;
+}
+function slackActivityName(type) { return ({toilet:'带薪如厕', phone:'刷手机', chat:'闲聊', walk:'溜达'})[type] || '带薪摸鱼'; }
+function toggleSlackControl() {
+  if (state.currentLunch) return;
+  if (state.currentSlack) { endSlack(); return; }
+  openSlackModal();
+}
+function toggleLunch() {
+  if (state.currentSlack) { if (state.currentSlack.type === 'lunch') endLunch(); return; }
+  if (state.currentLunch) { endLunch(); return; }
+  state.currentLunch = { start: new Date() };
+  save();
+  state.lunchTimerInt = setInterval(() => {
+    const mins = (Date.now() - new Date(state.currentLunch.start)) / 60000;
+    document.getElementById('lunchSummary').innerHTML = `<span class="drink-name">🍚 午休计时中</span><span class="drink-mins">${m2text(mins)}</span><span class="drink-cost">约赚 ¥${(mins * hourlyRate()/60).toFixed(2)}</span>`;
+    updateActivityControls();
+  }, 1000);
+  renderHome();
+  toast('午休计时开始');
+}
+function endLunch() {
+  if (!state.currentLunch) return;
+  const mins = (Date.now() - new Date(state.currentLunch.start)) / 60000;
+  state.lunchRecords = state.lunchRecords || [];
+  state.lunchRecords.push({ minutes: Math.round(mins * 10) / 10 });
+  state.currentLunch = null;
+  if (state.lunchTimerInt) clearInterval(state.lunchTimerInt);
+  state.lunchTimerInt = null;
+  save(); renderHome();
+  toast(`午休结束，计入 ${m2text(mins)} · ¥${(mins * hourlyRate()/60).toFixed(2)}`);
+}
+function openSlackModal() {
+  document.getElementById('slackModal').classList.add('active');
+  const choosing = !state.currentSlack;
+  document.getElementById('slackChoose').style.display = choosing ? 'block' : 'none';
+  document.getElementById('slackTiming').style.display = choosing ? 'none' : 'block';
+  if (!choosing) { document.getElementById('slackModalTitle').textContent = `${slackActivityName(state.currentSlack.type)}计时中`; updateSlackTimer(); }
+}
 function closeSlackModal() { document.getElementById('slackModal').classList.remove('active'); }
 
 function startSlack(type) {
+  if (state.currentLunch || state.currentSlack) return;
   state.currentSlack = { type, start: new Date() };
   document.getElementById('slackChoose').style.display = 'none';
   document.getElementById('slackTiming').style.display = 'block';
-  document.getElementById('slackModalTitle').textContent = '摸鱼中...';
-
-  state.slackTimerInt = setInterval(() => {
-    const el = (new Date() - state.currentSlack.start) / 1000 / 60;
-    const m = Math.floor(el), s = Math.floor((el%1)*60);
-    document.getElementById('slackTimer').textContent =
-      String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
-    document.getElementById('slackAmt').textContent = '已赚 ¥' + (el * hourlyRate()/60).toFixed(2);
-  }, 1000);
+  document.getElementById('slackModalTitle').textContent = `${slackActivityName(type)}计时中`;
+  state.slackTimerInt = setInterval(updateSlackTimer, 1000);
+  save(); updateActivityControls();
+}
+function updateSlackTimer() {
+  if (!state.currentSlack) return;
+  const el = (Date.now() - new Date(state.currentSlack.start)) / 60000;
+  const m = Math.floor(el), s = Math.floor((el%1)*60);
+  document.getElementById('slackTimer').textContent = String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  document.getElementById('slackAmt').textContent = '已赚 ¥' + (el * hourlyRate()/60).toFixed(2);
 }
 
 function endSlack() {
@@ -1418,10 +1484,13 @@ function endSlack() {
     const mins = (new Date() - state.currentSlack.start) / 1000 / 60;
     state.slackRecords.push({ type: state.currentSlack.type, minutes: Math.round(mins*10)/10 });
     state.currentSlack = null;
-    clearInterval(state.slackTimerInt);
+    if (state.slackTimerInt) clearInterval(state.slackTimerInt);
+    state.slackTimerInt = null;
   }
+  document.getElementById('slackChoose').style.display = 'block';
+  document.getElementById('slackTiming').style.display = 'none';
   closeSlackModal(); save(); renderHome();
-  toast('摸鱼结束，又赚了一笔！');
+  toast('计时结束，收入已记入小票');
 }
 
 // ===== 日历 =====
@@ -1620,6 +1689,12 @@ document.getElementById('setEnd').value = state.workEnd;
 document.getElementById('setLunch').value = state.lunchBreak;
 document.getElementById('setPayday').value = state.payDay;
 renderHome();
+if (state.currentSlack) state.slackTimerInt = setInterval(updateSlackTimer, 1000);
+if (state.currentLunch) state.lunchTimerInt = setInterval(() => {
+  const mins = (Date.now() - new Date(state.currentLunch.start)) / 60000;
+  document.getElementById('lunchSummary').innerHTML = `<span class="drink-name">🍚 午休计时中</span><span class="drink-mins">${m2text(mins)}</span><span class="drink-cost">约赚 ¥${(mins * hourlyRate()/60).toFixed(2)}</span>`;
+  updateActivityControls();
+}, 1000);
 </script>
 </body>
 </html>
