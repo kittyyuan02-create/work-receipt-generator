@@ -43,7 +43,7 @@ your-skills-dir/
 详见 [references/customization.md](references/customization.md)，支持：
 - 5个页面模块自由开关
 - 3套预设配色（牛皮纸/抹茶绿/樱花粉）
-- 黑猫IP替换成其他动物
+- 打工女孩形象可自定义（丸子头、黑框眼镜、电脑打字）
 - 增减摸鱼类型、饮品种类、倒计时项
 
 ## 技术栈
