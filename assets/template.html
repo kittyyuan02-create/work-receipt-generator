@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>小猫有薪事</title>
+<link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Noto+Serif+SC:wght@400;600;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #E8DCC4;
+    --paper: #FFFDF5;
+    --ink: #3D2914;
+    --ink-light: #8B7355;
+    --accent: #E67E22;
+    --blue: #2980B9;
+    --red: #C0392B;
+    --green: #27AE60;
+    --card: #F9F4E8;
+  }
+
+  body {
+    font-family: 'Noto Sans SC', sans-serif;
+    background: var(--bg);
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(180, 150, 100, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(180, 150, 100, 0.1) 0%, transparent 50%);
+    min-height: 100vh;
+    color: var(--ink);
+    padding-bottom: 80px;
+  }
+
+  .app-container {
+    max-width: 420px;
+    margin: 0 auto;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  /* ===== 底部导航 ===== */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 420px;
+    background: var(--paper);
+    border-top: 1px solid #D4C4A8;
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+    z-index: 100;
+  }
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    padding: 4px 12px;
+    border: none;
+    background: none;
+    color: var(--ink-light);
+    font-size: 11px;
+    font-family: inherit;
+  }
+  .nav-item.active { color: var(--accent); }
+  .nav-icon { font-size: 22px; }
+
+  /* ===== 页面切换 ===== */
+  .page { display: none; padding: 16px; }
+  .page.active { display: block; }
+
+  /* ===== 通用卡片 ===== */
+  .card {
+    background: var(--paper);
+    padding: 20px;
+    margin-bottom: 14px;
+    box-shadow: 2px 3px 12px rgba(0,0,0,0.08);
+    border-radius: 4px;
+  }
+
+  .card-title {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+
+  /* ===== 首页：上班小票 ===== */
+  .receipt {
+    background: var(--paper);
+    padding: 28px 22px 20px;
+    position: relative;
+    box-shadow: 2px 4px 20px rgba(0,0,0,0.1);
+    margin-bottom: 16px;
+  }
+  .receipt::before,
+  .receipt::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 10px;
+    background: radial-gradient(circle at 5px -1px, transparent 5px, #FFFDF5 5.5px) repeat-x;
+    background-size: 10px 10px;
+  }
+  .receipt::before { top: -5px; }
+  .receipt::after {
+    bottom: -5px;
+    background: radial-gradient(circle at 5px 11px, transparent 5px, #FFFDF5 5.5px) repeat-x;
+    background-size: 10px 10px;
+  }
+
+  .receipt-header { text-align: center; margin-bottom: 18px; }
+  .receipt-title {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 26px;
+    font-weight: 900;
+    letter-spacing: 2px;
+  }
+  .receipt-title .hl {
+    background: linear-gradient(to top, #F5D57A 40%, transparent 40%);
+    padding: 0 4px;
+  }
+  .receipt-sub { font-size: 11px; color: var(--ink-light); margin-top: 6px; letter-spacing: 1px; }
+
+  .date-bar {
+    background: var(--card);
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    border-left: 3px solid #D4B896;
+  }
+  .date-text { font-size: 15px; font-weight: 600; }
+  .mood-text { font-size: 11px; color: var(--ink-light); margin-top: 3px; }
+
+  .time-income {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 14px;
+    padding: 0 2px;
+  }
+  .ti-label { font-size: 10px; color: var(--ink-light); margin-bottom: 3px; }
+  .ti-time {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 26px;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .ti-money {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 26px;
+    font-weight: 900;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .ti-sub { font-size: 10px; color: var(--ink-light); margin-top: 4px; }
+
+  .progress-track {
+    height: 10px;
+    background: #F0E8D8;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 18px;
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #D4A574, var(--accent));
+    border-radius: 5px;
+    transition: width 1s linear;
+  }
+  .progress-cat {
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    transition: left 1s linear;
+  }
+  .progress-cat img { width: 100%; height: 100%; object-fit: contain; }
+
+  .divider {
+    border: none;
+    border-top: 1px dashed #D4C4A8;
+    margin: 14px 0;
+  }
+  .sec-label {
+    font-size: 10px;
+    color: var(--ink-light);
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+  }
+
+  /* 待办 */
+  .todo-row {
+    display: flex;
+    align-items: center;
+    padding: 5px 0;
+    font-size: 13px;
+  }
+  .todo-check {
+    width: 15px;
+    height: 15px;
+    border: 1.5px solid var(--ink-light);
+    margin-right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .todo-row.done .todo-text {
+    color: var(--ink-light);
+    text-decoration: line-through;
+  }
+  .add-btn {
+    background: none;
+    border: none;
+    color: var(--ink-light);
+    font-size: 12px;
+    padding: 4px 0;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .add-btn:hover { color: var(--accent); }
+
+  /* 饮品 */
+  .drink-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    font-size: 12px;
+  }
+  .drink-name { color: #5D4E37; }
+  .drink-mins { color: var(--ink-light); font-size: 11px; }
+  .drink-cost { color: var(--red); font-weight: 600; }
+
+  /* 摸鱼 */
+  .slack-total {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 6px;
+  }
+  .slack-total .amt {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--blue);
+  }
+  .slack-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 12px;
+  }
+  .slack-name { display: flex; align-items: center; gap: 5px; }
+  .slack-amt { color: var(--blue); font-weight: 600; }
+
+  .sticker {
+    display: inline-block;
+    background: #F5D57A;
+    padding: 3px 10px;
+    border-radius: 16px;
+    font-size: 11px;
+    font-weight: 600;
+    margin: 8px 0;
+    transform: rotate(-2deg);
+    box-shadow: 1px 2px 3px rgba(0,0,0,0.1);
+  }
+
+  /* 画饼 */
+  .goal-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+  }
+  .goal-pct { color: var(--accent); font-weight: 600; margin-left: auto; }
+
+  /* 底部 */
+  .receipt-footer { text-align: center; margin-top: 20px; padding-top: 14px; }
+  .footer-quote { font-size: 12px; color: #5D4E37; line-height: 1.6; margin-bottom: 14px; }
+  .barcode {
+    height: 30px;
+    background: repeating-linear-gradient(90deg, var(--ink) 0, var(--ink) 2px, transparent 2px, transparent 4px, var(--ink) 4px, var(--ink) 6px, transparent 6px, transparent 9px);
+    margin: 0 40px 6px;
+  }
+  .barcode-num { font-size: 9px; color: var(--ink-light); letter-spacing: 2px; }
+
+  /* 印章 */
+  .stamp {
+    position: absolute;
+    top: 32%;
+    right: 16px;
+    width: 80px;
+    height: 80px;
+    border: 3px solid var(--red);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--red);
+    font-size: 16px;
+    font-weight: 900;
+    font-family: 'Noto Serif SC', serif;
+    transform: rotate(12deg);
+    opacity: 0.75;
+    text-align: center;
+    line-height: 1.2;
+    pointer-events: none;
+  }
+  .stamp::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border: 1px solid var(--red);
+    border-radius: 50%;
+  }
+  .stamp.hidden { display: none; }
+
+  /* 打卡按钮 */
+  .clock-btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    margin-top: 8px;
+    transition: all 0.2s;
+  }
+  .clock-btn.start { background: var(--accent); color: white; }
+  .clock-btn.end { background: var(--red); color: white; }
+  .clock-btn:active { transform: scale(0.98); }
+
+  /* ===== 日历页 ===== */
+  .cal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .cal-month {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 20px;
+    font-weight: 900;
+  }
+  .cal-nav {
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: var(--ink-light);
+    padding: 4px 8px;
+  }
+
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-bottom: 16px;
+  }
+  .cal-weekday {
+    text-align: center;
+    font-size: 11px;
+    color: var(--ink-light);
+    padding: 6px 0;
+  }
+  .cal-day {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    border-radius: 6px;
+    position: relative;
+    background: transparent;
+  }
+  .cal-day.weekend { color: var(--red); }
+  .cal-day.today {
+    background: var(--accent);
+    color: white;
+    font-weight: 700;
+  }
+  .cal-day.workday { background: rgba(230, 126, 34, 0.1); }
+  .cal-day .cal-mark {
+    font-size: 8px;
+    margin-top: 1px;
+  }
+
+  .cal-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .stat-box {
+    background: var(--card);
+    padding: 12px;
+    border-radius: 8px;
+  }
+  .stat-label { font-size: 10px; color: var(--ink-light); margin-bottom: 4px; }
+  .stat-value { font-size: 16px; font-weight: 700; }
+  .stat-value.orange { color: var(--accent); }
+  .stat-value.blue { color: var(--blue); }
+
+  .countdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px dashed #E0D5C0;
+    font-size: 13px;
+  }
+  .countdown-row:last-child { border-bottom: none; }
+  .countdown-days { font-weight: 700; color: var(--accent); }
+
+  /* ===== 画饼页 ===== */
+  .goal-tab {
+    display: flex;
+    gap: 0;
+    margin-bottom: 16px;
+    background: var(--card);
+    border-radius: 8px;
+    padding: 3px;
+  }
+  .goal-tab-btn {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--ink-light);
+  }
+  .goal-tab-btn.active {
+    background: var(--paper);
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow: 1px 1px 4px rgba(0,0,0,0.08);
+  }
+
+  .goal-card {
+    background: var(--paper);
+    padding: 16px;
+    margin-bottom: 12px;
+    border-radius: 8px;
+    box-shadow: 1px 2px 8px rgba(0,0,0,0.06);
+  }
+  .goal-card.current { border-left: 3px solid var(--accent); }
+  .goal-card.done { opacity: 0.6; }
+
+  .goal-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .goal-icon { font-size: 24px; }
+  .goal-name { font-size: 15px; font-weight: 600; flex: 1; }
+  .goal-pct-big {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--accent);
+  }
+  .goal-bar {
+    height: 8px;
+    background: #F0E8D8;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .goal-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #F5D57A, var(--accent));
+    border-radius: 4px;
+  }
+  .goal-meta {
+    font-size: 11px;
+    color: var(--ink-light);
+  }
+
+  /* ===== 待办页 ===== */
+  .todo-filter {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .filter-chip {
+    padding: 6px 14px;
+    border-radius: 16px;
+    border: 1px solid #D4C4A8;
+    background: var(--paper);
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--ink-light);
+  }
+  .filter-chip.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  .todo-whiteboard {
+    background: var(--paper);
+    padding: 20px;
+    border-radius: 4px;
+    box-shadow: 2px 3px 12px rgba(0,0,0,0.08);
+    min-height: 300px;
+  }
+  .wb-title {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 20px;
+    font-weight: 900;
+    margin-bottom: 4px;
+  }
+  .wb-sub { font-size: 11px; color: var(--ink-light); margin-bottom: 16px; }
+  .wb-count { float: right; font-size: 11px; color: var(--ink-light); font-weight: normal; }
+
+  .todo-cat-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    font-size: 12px;
+  }
+  .cat-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+  }
+
+  /* ===== 设置页 ===== */
+  .form-group { margin-bottom: 16px; }
+  .form-label {
+    font-size: 12px;
+    color: var(--ink-light);
+    margin-bottom: 6px;
+    display: block;
+  }
+  .form-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #D4C4A8;
+    border-radius: 6px;
+    font-size: 14px;
+    background: white;
+    color: var(--ink);
+    font-family: inherit;
+  }
+  .form-input:focus { outline: none; border-color: var(--accent); }
+
+  .save-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    margin-top: 8px;
+  }
+
+  /* ===== 摸鱼弹层 ===== */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 200;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-sheet {
+    background: var(--paper);
+    width: 100%;
+    max-width: 420px;
+    border-radius: 20px 20px 0 0;
+    padding: 24px;
+    padding-bottom: 40px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .modal-title {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 18px;
+    text-align: center;
+  }
+
+  .slack-type-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px;
+    background: var(--card);
+    border: none;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--ink);
+  }
+
+  .timer-display {
+    text-align: center;
+    font-size: 44px;
+    font-weight: 900;
+    color: var(--blue);
+    font-family: 'Noto Serif SC', serif;
+    margin: 16px 0;
+  }
+  .timer-amt {
+    text-align: center;
+    font-size: 14px;
+    color: var(--ink-light);
+    margin-bottom: 20px;
+  }
+
+  /* 饮品选择网格 */
+  .drink-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .drink-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 6px;
+    background: var(--card);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .drink-emoji { font-size: 28px; margin-bottom: 6px; }
+  .drink-label { font-size: 11px; color: var(--ink); }
+
+  /* toast */
+  .toast {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(61, 41, 20, 0.9);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    z-index: 300;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  /* 办公室场景（首页装饰） */
+  .office-scene {
+    margin: 16px -8px;
+    padding: 12px;
+    background: var(--card);
+    border-radius: 8px;
+    text-align: center;
+    position: relative;
+  }
+  .office-cat {
+    width: 70px;
+    height: 70px;
+    margin: 0 auto;
+  }
+  .office-cat img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .office-bubble {
+    display: inline-block;
+    background: white;
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    margin-top: 8px;
+    box-shadow: 1px 1px 4px rgba(0,0,0,0.08);
+  }
+
+  /* 小鱼干计数 */
+  .fish-count {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--ink-light);
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app-container">
+
+  <!-- ===== 首页 ===== -->
+  <div class="page active" id="pageHome">
+    <div class="receipt">
+      <div class="stamp hidden" id="offStamp">已下班<br>OFF WORK</div>
+
+      <div class="receipt-header">
+        <div class="receipt-title">你的<span class="hl">上班小票</span></div>
+        <div class="receipt-sub">上了几小时 · 赚了多少 · 摸了多久鱼</div>
+      </div>
+
+      <div class="date-bar">
+        <div class="date-text" id="dateText">--</div>
+        <div class="mood-text" id="moodText">--</div>
+      </div>
+
+      <div class="time-income">
+        <div>
+          <div class="ti-label">在岗时长</div>
+          <div class="ti-time" id="workDur">0分钟</div>
+          <div class="ti-sub" id="timeRange">--:-- → --:--</div>
+        </div>
+        <div style="text-align:right">
+          <div class="ti-label">今日收入</div>
+          <div class="ti-money" id="todayMoney">¥0.00</div>
+        </div>
+      </div>
+
+      <div class="progress-track">
+        <div class="progress-fill" id="progFill" style="width:0%"></div>
+      </div>
+
+      <!-- 办公室场景 -->
+      <div class="office-scene">
+        <div class="office-cat" id="officeCat">
+          <img src="https://aka.doubaocdn.com/s/Plsyk9kWc4" alt="小猫">
+        </div>
+        <div class="office-bubble" id="officeBubble">小猫替你打卡，你只管看钱包</div>
+        <div class="fish-count">🐟 小鱼干 <span id="fishCount">0</span></div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="sec-label">完成的事</div>
+      <div id="homeTodoList"></div>
+      <button class="add-btn" onclick="addTodo()">+ 添加待办</button>
+
+      <hr class="divider">
+
+      <div class="sec-label">午休与饮品</div>
+      <div id="homeDrinkList">
+        <div class="drink-row">
+          <span class="drink-name">🍚 午休 12:00→13:00</span>
+          <span class="drink-mins">1小时</span>
+          <span class="drink-cost">不计薪</span>
+        </div>
+      </div>
+      <button class="add-btn" onclick="openDrinkModal()">+ 记一杯奶茶/咖啡</button>
+
+      <hr class="divider">
+
+      <div class="sec-label">摸鱼</div>
+      <div class="slack-total">
+        <span class="amt" id="slackTotal">¥0.00</span>
+      </div>
+      <div id="homeSlackList"></div>
+      <div class="sticker" id="slackSticker">摸鱼赚了 ¥0</div>
+
+      <hr class="divider">
+
+      <div class="sec-label">画饼进度</div>
+      <div class="goal-row" id="homeGoalRow">
+        <span>🥯</span>
+        <span id="homeGoalName">去京都看红叶</span>
+        <span class="goal-pct" id="homeGoalPct">0%</span>
+      </div>
+
+      <div class="receipt-footer">
+        <div class="footer-quote" id="footerQuote">踏踏实实上了一天班，辛苦啦，给自己点个赞！</div>
+        <div class="barcode"></div>
+        <div class="barcode-num">=^..^= 小猫有薪事</div>
+      </div>
+    </div>
+
+    <button class="clock-btn start" id="clockBtn" onclick="toggleClock()">▶ 上班打卡</button>
+  </div>
+
+  <!-- ===== 日历页 ===== -->
+  <div class="page" id="pageCal">
+    <div class="card">
+      <div class="cal-header">
+        <button class="cal-nav" onclick="changeMonth(-1)">‹</button>
+        <div class="cal-month" id="calMonth">2026年11月</div>
+        <button class="cal-nav" onclick="changeMonth(1)">›</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">本月统计</div>
+      <div class="cal-stats">
+        <div class="stat-box">
+          <div class="stat-label">已上班</div>
+          <div class="stat-value" id="statWorked">0 天</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">已赚工资</div>
+          <div class="stat-value orange" id="statEarned">¥0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">剩余工作日</div>
+          <div class="stat-value blue" id="statRemain">0 天</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">本月总工资</div>
+          <div class="stat-value" id="statTotal">¥0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">倒计时</div>
+      <div class="countdown-row">
+        <span>📅 下个假期</span>
+        <span class="countdown-days" id="cdHoliday">-- 天</span>
+      </div>
+      <div class="countdown-row">
+        <span>💰 发薪日</span>
+        <span class="countdown-days" id="cdSalary">-- 天</span>
+      </div>
+      <div class="countdown-row">
+        <span>🚪 距离离职</span>
+        <span class="countdown-days">未设置</span>
+      </div>
+      <div class="countdown-row">
+        <span>🌴 距离退休</span>
+        <span class="countdown-days">未设置</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 画饼页 ===== -->
+  <div class="page" id="pageGoal">
+    <div class="goal-tab">
+      <button class="goal-tab-btn active" onclick="switchGoalTab(this, 'today')">今日画饼</button>
+      <button class="goal-tab-btn" onclick="switchGoalTab(this, 'calc')">打工计算器</button>
+    </div>
+
+    <div id="goalTodayView">
+      <div id="goalList"></div>
+      <button class="add-btn" style="width:100%; text-align:center; padding:12px; border:1px dashed #D4C4A8; border-radius:8px; margin-top:8px;" onclick="addGoal()">+ 添加目标</button>
+    </div>
+
+    <div id="goalCalcView" style="display:none">
+      <div class="card">
+        <div class="card-title">打工计算器</div>
+        <p style="font-size:13px; color:var(--ink-light); margin-bottom:16px;">想知道这个东西要上几天班？</p>
+        <div class="form-group">
+          <label class="form-label">物品价格（元）</label>
+          <input type="number" class="form-input" id="calcPrice" placeholder="例如：5000">
+        </div>
+        <button class="save-btn" onclick="calcWorkDays()">算一算</button>
+        <div id="calcResult" style="margin-top:16px; text-align:center; font-size:14px; display:none;">
+          <div style="font-size:24px; font-weight:900; color:var(--accent);" id="calcDays">--</div>
+          <div style="color:var(--ink-light); margin-top:4px;" id="calcDesc">个工作日的工资</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 待办页 ===== -->
+  <div class="page" id="pageTodo">
+    <div class="todo-filter">
+      <button class="filter-chip active" onclick="filterTodo(this, 'all')">全部</button>
+      <button class="filter-chip" onclick="filterTodo(this, 'work')">工作</button>
+      <button class="filter-chip" onclick="filterTodo(this, 'life')">生活</button>
+    </div>
+
+    <div class="todo-whiteboard">
+      <div class="wb-title">待办 <span class="wb-count" id="wbCount">0/0</span></div>
+      <div class="wb-sub">带薪偷偷搞定的小事</div>
+      <div class="todo-cat-row">
+        <span><span class="cat-dot" style="background:var(--accent)"></span>工作</span>
+        <span><span class="cat-dot" style="background:var(--green)"></span>生活</span>
+      </div>
+      <div id="todoFullList"></div>
+      <button class="add-btn" onclick="addTodoFull()">+ 添加待办</button>
+    </div>
+  </div>
+
+  <!-- ===== 设置页 ===== -->
+  <div class="page" id="pageSettings">
+    <div class="card">
+      <div class="card-title">薪资作息</div>
+      <div class="form-group">
+        <label class="form-label">月薪（元）</label>
+        <input type="number" class="form-input" id="setSalary" placeholder="15000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">上班时间</label>
+        <input type="time" class="form-input" id="setStart" value="09:30">
+      </div>
+      <div class="form-group">
+        <label class="form-label">下班时间</label>
+        <input type="time" class="form-input" id="setEnd" value="18:30">
+      </div>
+      <div class="form-group">
+        <label class="form-label">午休时长（小时）</label>
+        <input type="number" class="form-input" id="setLunch" value="1" step="0.5">
+      </div>
+      <div class="form-group">
+        <label class="form-label">发薪日（每月几号）</label>
+        <input type="number" class="form-input" id="setPayday" value="10" min="1" max="31">
+      </div>
+      <button class="save-btn" onclick="saveSettings()">保存设置</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">关于</div>
+      <p style="font-size:12px; color:var(--ink-light); line-height:1.8;">
+        小猫有薪事 · 上班小票版<br>
+        把上班的每一分钟都换算成钱，<br>
+        摸鱼也摸得明明白白。<br><br>
+        所有数据保存在本地浏览器。
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<!-- 底部导航 -->
+<div class="bottom-nav">
+  <button class="nav-item active" onclick="switchPage('home', this)">
+    <span class="nav-icon">🏠</span>
+    <span>小票</span>
+  </button>
+  <button class="nav-item" onclick="switchPage('cal', this)">
+    <span class="nav-icon">📅</span>
+    <span>日历</span>
+  </button>
+  <button class="nav-item" onclick="switchPage('goal', this)">
+    <span class="nav-icon">🥯</span>
+    <span>画饼</span>
+  </button>
+  <button class="nav-item" onclick="switchPage('todo', this)">
+    <span class="nav-icon">📋</span>
+    <span>待办</span>
+  </button>
+  <button class="nav-item" onclick="switchPage('settings', this)">
+    <span class="nav-icon">⚙️</span>
+    <span>我的</span>
+  </button>
+</div>
+
+<!-- 摸鱼弹层 -->
+<div class="modal-overlay" id="slackModal">
+  <div class="modal-sheet">
+    <div class="modal-title" id="slackModalTitle">开始摸鱼</div>
+    <div id="slackChoose">
+      <button class="slack-type-btn" onclick="startSlack('toilet')">🚽 带薪如厕</button>
+      <button class="slack-type-btn" onclick="startSlack('phone')">📱 刷手机</button>
+      <button class="slack-type-btn" onclick="startSlack('chat')">💬 闲聊</button>
+      <button class="slack-type-btn" onclick="startSlack('walk')">🚶 到处溜达</button>
+    </div>
+    <div id="slackTiming" style="display:none">
+      <div class="timer-display" id="slackTimer">00:00</div>
+      <div class="timer-amt" id="slackAmt">已赚 ¥0.00</div>
+      <button class="save-btn" style="background:var(--blue)" onclick="endSlack()">结束摸鱼</button>
+    </div>
+  </div>
+</div>
+
+<!-- 饮品弹层 -->
+<div class="modal-overlay" id="drinkModal">
+  <div class="modal-sheet">
+    <div class="modal-title">喝杯咖啡 ☕</div>
+    <div class="drink-grid" id="drinkGrid"></div>
+    <p style="font-size:11px; color:var(--ink-light); text-align:center; margin-bottom:16px;">
+      每一杯都换算成工时，下单前先算算
+    </p>
+    <button class="save-btn" onclick="closeDrinkModal()">关闭</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== 状态 =====
+let state = {
+  monthlySalary: 15000,
+  workStart: '09:30',
+  workEnd: '18:30',
+  lunchBreak: 1,
+  payDay: 10,
+  isWorking: false,
+  clockIn: null,
+  clockOut: null,
+  todos: [
+    { text: '交季度报告', done: true, cat: 'work' },
+    { text: '约牙医', done: false, cat: 'life' },
+    { text: '买猫粮', done: true, cat: 'life' },
+    { text: '回复小王周五的事', done: false, cat: 'work' },
+    { text: '计划周末出游', done: false, cat: 'life' }
+  ],
+  drinks: [
+    { name: '拿铁', price: 22 },
+    { name: '珍珠奶茶', price: 18 }
+  ],
+  slackRecords: [],
+  goals: [
+    { name: '去京都旅行', target: 8000, saved: 3449, icon: '✈️' },
+    { name: '换新电脑', target: 12000, saved: 2640, icon: '💻' }
+  ],
+  fish: 17,
+  currentSlack: null,
+  timerInt: null,
+  slackTimerInt: null,
+  calOffset: 0,
+  todoFilter: 'all'
+};
+
+const DRINK_PRESETS = [
+  { name: '美式', emoji: '☕', price: 15 },
+  { name: '拿铁', emoji: '🥛', price: 22 },
+  { name: '卡布奇诺', emoji: '☕', price: 24 },
+  { name: '摩卡', emoji: '🍫', price: 26 },
+  { name: '抹茶拿铁', emoji: '🍵', price: 28 },
+  { name: '生椰拿铁', emoji: '🥥', price: 26 },
+  { name: '馥芮白', emoji: '☕', price: 29 },
+  { name: '焦糖玛奇朵', emoji: '🍮', price: 28 },
+  { name: '香草拿铁', emoji: '🍦', price: 25 }
+];
+
+// ===== 工具 =====
+function load() {
+  const s = localStorage.getItem('catSalaryState');
+  if (s) { try { state = { ...state, ...JSON.parse(s) }; } catch(e){} }
+}
+function save() { localStorage.setItem('catSalaryState', JSON.stringify(state)); }
+
+function hourlyRate() {
+  const workMins = t2m(state.workEnd) - t2m(state.workStart) - state.lunchBreak * 60;
+  return (state.monthlySalary / 21.75) / (workMins / 60);
+}
+function t2m(t) { const [h,m] = t.split(':').map(Number); return h*60+m; }
+function m2text(mins) {
+  const h = Math.floor(mins/60), m = Math.round(mins%60);
+  return h === 0 ? m+'分钟' : h+'小时'+(m>0?m+'分钟':'');
+}
+function todayIncome() {
+  if (!state.isWorking || !state.clockIn) return 0;
+  return (new Date() - state.clockIn) / 1000 / 60 * hourlyRate() / 60;
+}
+function workDur() {
+  if (!state.clockIn) return 0;
+  const end = state.clockOut || new Date();
+  return (end - state.clockIn) / 1000 / 60;
+}
+function fmtTime(d) {
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+
+// ===== 页面切换 =====
+function switchPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  btn.classList.add('active');
+  if (name === 'cal') renderCalendar();
+  if (name === 'goal') renderGoals();
+  if (name === 'todo') renderTodoFull();
+}
+
+// ===== 首页渲染 =====
+function renderHome() {
+  const now = new Date();
+  const days = ['周日','周一','周二','周三','周四','周五','周六'];
+  document.getElementById('dateText').textContent =
+    `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 ${days[now.getDay()]}`;
+
+  const moods = {1:'周一了，新的一周开始熬',2:'周二，距离周末还有漫长的四天',3:'周三了，周中就是最疲惫的时候',4:'周四了，离周末只差一个周五',5:'周五了！今天必须准时下班',6:'周六，怎么还要处理工作消息',0:'周日，明天又要上班了...'};
+  document.getElementById('moodText').textContent = moods[now.getDay()];
+
+  document.getElementById('workDur').textContent = m2text(workDur());
+  document.getElementById('todayMoney').textContent = '¥' + todayIncome().toFixed(2);
+
+  if (state.clockIn) {
+    const out = state.clockOut ? fmtTime(state.clockOut) : '--:--';
+    document.getElementById('timeRange').textContent = `${fmtTime(state.clockIn)} → ${out}`;
+  }
+
+  const totalMins = t2m(state.workEnd) - t2m(state.workStart) - state.lunchBreak*60;
+  document.getElementById('progFill').style.width = Math.min(100, workDur()/totalMins*100) + '%';
+
+  // 待办
+  const todoEl = document.getElementById('homeTodoList');
+  todoEl.innerHTML = '';
+  state.todos.slice(0, 5).forEach((t, i) => {
+    todoEl.innerHTML += `
+      <div class="todo-row ${t.done?'done':''}">
+        <div class="todo-check" onclick="toggleTodo(${i})">${t.done?'✓':''}</div>
+        <span class="todo-text">${t.text}</span>
+      </div>`;
+  });
+
+  // 饮品
+  const drEl = document.getElementById('homeDrinkList');
+  drEl.innerHTML = `<div class="drink-row">
+    <span class="drink-name">🍚 午休 12:00→13:00</span>
+    <span class="drink-mins">1小时</span>
+    <span class="drink-cost">不计薪</span>
+  </div>`;
+  state.drinks.forEach(d => {
+    const mins = Math.round(d.price / hourlyRate() * 60);
+    drEl.innerHTML += `<div class="drink-row">
+      <span class="drink-name">🥤 ${d.name} ≈${mins}分钟班</span>
+      <span class="drink-cost">-¥${d.price.toFixed(0)}</span>
+    </div>`;
+  });
+
+  // 摸鱼
+  let sTotal = 0;
+  const slEl = document.getElementById('homeSlackList');
+  slEl.innerHTML = '';
+  state.slackRecords.forEach(r => {
+    const amt = r.minutes * hourlyRate() / 60;
+    sTotal += amt;
+    const names = {toilet:'带薪如厕', phone:'刷手机', chat:'闲聊', walk:'溜达'};
+    const icons = {toilet:'🚽', phone:'📱', chat:'💬', walk:'🚶'};
+    slEl.innerHTML += `<div class="slack-row">
+      <span class="slack-name"><span>${icons[r.type]}</span>${names[r.type]} ${m2text(r.minutes)}</span>
+      <span class="slack-amt">¥${amt.toFixed(2)}</span>
+    </div>`;
+  });
+  document.getElementById('slackTotal').textContent = '¥' + sTotal.toFixed(2);
+  document.getElementById('slackSticker').textContent = `摸鱼赚了 ¥${Math.round(sTotal)}`;
+
+  // 画饼
+  if (state.goals.length > 0) {
+    const g = state.goals[0];
+    const pct = Math.round(g.saved / g.target * 100);
+    document.getElementById('homeGoalName').textContent = g.icon + ' ' + g.name;
+    document.getElementById('homeGoalPct').textContent = pct + '%';
+  }
+
+  // 下班印章
+  if (state.clockOut) {
+    document.getElementById('offStamp').classList.remove('hidden');
+    document.getElementById('footerQuote').textContent = '今天辛苦啦！明天又是打工的一天~';
+    document.getElementById('officeBubble').textContent = '下班啦！小猫也下班咯';
+    document.getElementById('officeCat').innerHTML = '<img src="https://aka.doubaocdn.com/s/US33enaZBo" alt="下班猫">';
+  } else if (state.isWorking) {
+    document.getElementById('officeBubble').textContent = '加油赚钱中...';
+    document.getElementById('officeCat').innerHTML = '<img src="https://aka.doubaocdn.com/s/W9cqSJyKNj" alt="摸鱼猫">';
+  }
+
+  document.getElementById('fishCount').textContent = state.fish;
+
+  // 打卡按钮
+  const btn = document.getElementById('clockBtn');
+  if (state.isWorking) {
+    btn.textContent = '⏹ 下班打卡';
+    btn.className = 'clock-btn end';
+  } else {
+    btn.textContent = '▶ 上班打卡';
+    btn.className = 'clock-btn start';
+  }
+}
+
+// ===== 打卡 =====
+function toggleClock() {
+  if (!state.isWorking) {
+    state.clockIn = new Date();
+    state.clockOut = null;
+    state.isWorking = true;
+    state.fish += 1;
+    toast('打卡上班！开始赚钱啦');
+    startTick();
+  } else {
+    state.clockOut = new Date();
+    state.isWorking = false;
+    stopTick();
+    toast('下班啦！今天辛苦了 +1鱼干');
+  }
+  save(); renderHome();
+}
+function startTick() { state.timerInt = setInterval(renderHome, 1000); }
+function stopTick() { if (state.timerInt) { clearInterval(state.timerInt); state.timerInt = null; } }
+
+// ===== 待办 =====
+function toggleTodo(i) {
+  state.todos[i].done = !state.todos[i].done;
+  save(); renderHome(); renderTodoFull();
+}
+function addTodo() {
+  const text = prompt('待办事项：');
+  if (text && text.trim()) {
+    state.todos.push({ text: text.trim(), done: false, cat: 'work' });
+    save(); renderHome(); renderTodoFull();
+  }
+}
+function addTodoFull() {
+  const text = prompt('待办事项：');
+  if (!text || !text.trim()) return;
+  const cat = confirm('确定是生活类吗？\n确定=生活，取消=工作') ? 'life' : 'work';
+  state.todos.push({ text: text.trim(), done: false, cat });
+  save(); renderHome(); renderTodoFull();
+}
+
+function renderTodoFull() {
+  const list = document.getElementById('todoFullList');
+  list.innerHTML = '';
+  const filtered = state.todos.filter(t => state.todoFilter === 'all' || t.cat === state.todoFilter);
+  filtered.forEach((t) => {
+    const idx = state.todos.indexOf(t);
+    const dot = t.cat === 'work' ? 'var(--accent)' : 'var(--green)';
+    list.innerHTML += `
+      <div class="todo-row ${t.done?'done':''}" style="padding:8px 0;">
+        <div class="todo-check" onclick="toggleTodo(${idx})">${t.done?'✓':''}</div>
+        <span class="todo-text" style="font-size:14px;">${t.text}</span>
+        <span style="margin-left:auto; width:8px; height:8px; border-radius:50%; background:${dot};"></span>
+      </div>`;
+  });
+  const done = state.todos.filter(t => t.done).length;
+  document.getElementById('wbCount').textContent = done + '/' + state.todos.length;
+}
+function filterTodo(btn, f) {
+  state.todoFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  renderTodoFull();
+}
+
+// ===== 饮品 =====
+function openDrinkModal() {
+  const grid = document.getElementById('drinkGrid');
+  grid.innerHTML = '';
+  DRINK_PRESETS.forEach(d => {
+    grid.innerHTML += `
+      <button class="drink-option" onclick="pickDrink('${d.name}', ${d.price})">
+        <span class="drink-emoji">${d.emoji}</span>
+        <span class="drink-label">${d.name}</span>
+      </button>`;
+  });
+  document.getElementById('drinkModal').classList.add('active');
+}
+function closeDrinkModal() { document.getElementById('drinkModal').classList.remove('active'); }
+function pickDrink(name, price) {
+  state.drinks.push({ name, price });
+  save(); renderHome(); closeDrinkModal();
+  const mins = Math.round(price / hourlyRate() * 60);
+  toast(`${name} = 上班${mins}分钟`);
+}
+
+// ===== 摸鱼 =====
+function openSlackModal() { document.getElementById('slackModal').classList.add('active'); }
+function closeSlackModal() { document.getElementById('slackModal').classList.remove('active'); }
+
+function startSlack(type) {
+  state.currentSlack = { type, start: new Date() };
+  document.getElementById('slackChoose').style.display = 'none';
+  document.getElementById('slackTiming').style.display = 'block';
+  document.getElementById('slackModalTitle').textContent = '摸鱼中...';
+
+  state.slackTimerInt = setInterval(() => {
+    const el = (new Date() - state.currentSlack.start) / 1000 / 60;
+    const m = Math.floor(el), s = Math.floor((el%1)*60);
+    document.getElementById('slackTimer').textContent =
+      String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+    document.getElementById('slackAmt').textContent = '已赚 ¥' + (el * hourlyRate()/60).toFixed(2);
+  }, 1000);
+}
+
+function endSlack() {
+  if (state.currentSlack) {
+    const mins = (new Date() - state.currentSlack.start) / 1000 / 60;
+    state.slackRecords.push({ type: state.currentSlack.type, minutes: Math.round(mins*10)/10 });
+    state.currentSlack = null;
+    clearInterval(state.slackTimerInt);
+  }
+  closeSlackModal(); save(); renderHome();
+  toast('摸鱼结束，又赚了一笔！');
+}
+
+// ===== 日历 =====
+function renderCalendar() {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth() + state.calOffset;
+  const monthDate = new Date(y, m, 1);
+  const year = monthDate.getFullYear(), month = monthDate.getMonth();
+
+  document.getElementById('calMonth').textContent = `${year}年${month+1}月`;
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '<div class="cal-weekday">日</div><div class="cal-weekday">一</div><div class="cal-weekday">二</div><div class="cal-weekday">三</div><div class="cal-weekday">四</div><div class="cal-weekday">五</div><div class="cal-weekday">六</div>';
+
+  for (let i = 0; i < firstDay; i++) grid.innerHTML += '<div class="cal-day"></div>';
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, month, d);
+    const dayOfWeek = date.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const isToday = d === now.getDate() && month === now.getMonth() && state.calOffset === 0;
+
+    let cls = 'cal-day';
+    if (isWeekend) cls += ' weekend';
+    if (isToday) cls += ' today';
+    else if (!isWeekend) cls += ' workday';
+
+    let mark = '';
+    if (d === state.payDay) mark = '💰';
+
+    grid.innerHTML += `<div class="${cls}">
+      <span>${d}</span>
+      <span class="cal-mark">${mark}</span>
+    </div>`;
+  }
+
+  // 统计
+  const workDays = Math.ceil(daysInMonth * 5/7);
+  document.getElementById('statWorked').textContent = '约' + workDays + '天';
+  document.getElementById('statEarned').textContent = '¥' + state.monthlySalary.toLocaleString();
+  document.getElementById('statRemain').textContent = workDays + ' 天';
+  document.getElementById('statTotal').textContent = '¥' + state.monthlySalary.toLocaleString();
+
+  // 发薪日倒计时
+  const today = now.getDate();
+  const payDay = state.payDay;
+  let cd = payDay - today;
+  if (cd < 0) cd += daysInMonth;
+  document.getElementById('cdSalary').textContent = cd + ' 天';
+}
+function changeMonth(dir) { state.calOffset += dir; renderCalendar(); }
+
+// ===== 画饼 =====
+function renderGoals() {
+  const list = document.getElementById('goalList');
+  list.innerHTML = '';
+  state.goals.forEach((g, i) => {
+    const pct = Math.min(100, Math.round(g.saved / g.target * 100));
+    const daysLeft = Math.ceil((g.target - g.saved) / (state.monthlySalary / 21.75));
+    list.innerHTML += `
+      <div class="goal-card current">
+        <div class="goal-head">
+          <span class="goal-icon">${g.icon}</span>
+          <span class="goal-name">${g.name}</span>
+          <span class="goal-pct-big">${pct}%</span>
+        </div>
+        <div class="goal-bar"><div class="goal-bar-fill" style="width:${pct}%"></div></div>
+        <div class="goal-meta">
+          已计入收入 ¥${g.saved.toFixed(0)} · 还差约 ${daysLeft} 个工作日
+        </div>
+      </div>`;
+  });
+}
+function switchGoalTab(btn, tab) {
+  document.querySelectorAll('.goal-tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('goalTodayView').style.display = tab === 'today' ? 'block' : 'none';
+  document.getElementById('goalCalcView').style.display = tab === 'calc' ? 'block' : 'none';
+}
+function addGoal() {
+  const name = prompt('目标名称（如：去冰岛看极光）：');
+  if (!name) return;
+  const amount = parseFloat(prompt('目标金额（元）：'));
+  if (amount > 0) {
+    state.goals.push({ name, target: amount, saved: 0, icon: '🎯' });
+    save(); renderGoals(); renderHome();
+    toast('目标已添加');
+  }
+}
+function calcWorkDays() {
+  const price = parseFloat(document.getElementById('calcPrice').value);
+  if (!price || price <= 0) return;
+  const daily = state.monthlySalary / 21.75;
+  const days = Math.ceil(price / daily);
+  document.getElementById('calcResult').style.display = 'block';
+  document.getElementById('calcDays').textContent = days + ' 天';
+  document.getElementById('calcDesc').textContent = '个工作日的工资 = ¥' + (days * daily).toFixed(0);
+}
+
+// ===== 设置 =====
+function saveSettings() {
+  state.monthlySalary = parseFloat(document.getElementById('setSalary').value) || 15000;
+  state.workStart = document.getElementById('setStart').value;
+  state.workEnd = document.getElementById('setEnd').value;
+  state.lunchBreak = parseFloat(document.getElementById('setLunch').value) || 1;
+  state.payDay = parseInt(document.getElementById('setPayday').value) || 10;
+  save(); renderHome(); renderCalendar();
+  toast('设置已保存');
+}
+
+// ===== toast =====
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// 点击遮罩关闭
+document.getElementById('slackModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeSlackModal(); });
+document.getElementById('drinkModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeDrinkModal(); });
+
+// ===== 初始化 =====
+load();
+document.getElementById('setSalary').value = state.monthlySalary;
+document.getElementById('setStart').value = state.workStart;
+document.getElementById('setEnd').value = state.workEnd;
+document.getElementById('setLunch').value = state.lunchBreak;
+document.getElementById('setPayday').value = state.payDay;
+renderHome();
+</script>
+</body>
+</html>
