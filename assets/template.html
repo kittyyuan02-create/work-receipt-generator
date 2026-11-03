@@ -853,7 +853,7 @@
       </div>
     </div>
 
-    <button class="share-export" onclick="exportTodayReceipt()">📸 生成今日长小票图片</button>
+    <button class="share-export" onclick="exportTodayReceipt()">📸 生成今日手帐贴纸小票</button>
     <div class="share-note">图片在本地生成；发朋友圈前记得检查展示内容</div>
 
     <button class="clock-btn start" id="clockBtn" onclick="toggleClock()">▶ 上班打卡</button>
@@ -1158,80 +1158,64 @@ function fmtTime(d) {
 // ===== 分享小票图片（纯本地 Canvas，不上传任何数据） =====
 function exportTodayReceipt() {
   const width=1080, now=new Date(), done=state.todos.filter(item=>item.done), records=state.slackRecords||[];
-  const lunchRecords=state.lunchRecords||[];
-  const height=1544+Math.max(records.length-1,0)*56+Math.max(done.length-1,0)*48;
-  const canvas=document.createElement('canvas'); canvas.width=width; canvas.height=height;
+  const height=1600+Math.max(records.length-1,0)*58+Math.max(done.length-1,0)*54;
+  const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
   const ctx=canvas.getContext('2d');
-  const dateLabel=`${now.getFullYear()}年${String(now.getMonth()+1).padStart(2,'0')}月${String(now.getDate()).padStart(2,'0')}日 ${['周日','周一','周二','周三','周四','周五','周六'][now.getDay()]}`;
-  const lunchMinutes=lunchRecords.reduce((sum,r)=>sum+r.minutes,0)+(state.currentLunch?(Date.now()-new Date(state.currentLunch.start))/60000:0);
-  const slackValue=records.reduce((sum,r)=>sum+r.minutes*hourlyRate()/60,0);
+  const dateLabel=`${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 ${['周日','周一','周二','周三','周四','周五','周六'][now.getDay()]}`;
+  const lunchMinutes=(state.lunchRecords||[]).reduce((sum,r)=>sum+r.minutes,0)+(state.currentLunch?(Date.now()-new Date(state.currentLunch.start))/60000:0);
   const lunchValue=lunchMinutes*hourlyRate()/60;
-  const mono='24px "Courier New",Consolas,monospace';
-  const small='20px "Courier New",Consolas,monospace';
-  const bold='700 30px "Courier New",Consolas,monospace';
-  const center=(text,y,font=mono)=>{ctx.textAlign='center';ctx.font=font;ctx.fillText(text,width/2,y);};
-  const rule=y=>{ctx.save();ctx.strokeStyle='#777';ctx.lineWidth=2;ctx.setLineDash([8,7]);ctx.beginPath();ctx.moveTo(265,y);ctx.lineTo(815,y);ctx.stroke();ctx.restore();};
-  const row=(label,value,y)=>{ctx.font=mono;ctx.textAlign='left';ctx.fillText(label,270,y);ctx.textAlign='right';ctx.fillText(value,810,y);};
+  const slackValue=records.reduce((sum,r)=>sum+r.minutes*hourlyRate()/60,0);
+  const paper={x:190,w:700,top:86,bottom:height-86};
+  const textFont='26px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif';
+  const smallFont='21px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif';
+  const boldFont='700 30px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif';
+  const rounded=(x,y,w,h,r,fill,stroke)=>{ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.lineWidth=3;ctx.strokeStyle=stroke;ctx.stroke();}};
+  const center=(text,y,font= textFont,color='#694C5B')=>{ctx.textAlign='center';ctx.font=font;ctx.fillStyle=color;ctx.fillText(text,width/2,y);};
+  const divider=y=>{ctx.save();ctx.strokeStyle='#E8CDD7';ctx.lineWidth=2;ctx.setLineDash([7,8]);ctx.beginPath();ctx.moveTo(250,y);ctx.lineTo(830,y);ctx.stroke();ctx.restore();};
   const clip=(text,max)=>{let out=String(text||'');while(out&&ctx.measureText(out).width>max)out=out.slice(0,-1);return out.length<String(text||'').length?out.slice(0,-1)+'…':out;};
+  const sticker=(x,y,emoji,size=46,fill='#FFFFFF')=>{ctx.save();ctx.shadowColor='rgba(105,70,90,.18)';ctx.shadowBlur=12;ctx.shadowOffsetY=4;ctx.beginPath();ctx.arc(x,y,size/2+10,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();ctx.lineWidth=4;ctx.strokeStyle='#FFFFFF';ctx.stroke();ctx.shadowColor='transparent';ctx.font=`${size}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(emoji,x,y+1);ctx.restore();};
+  const pill=(x,y,label,color='#FCE7EE')=>{ctx.font=smallFont;const w=ctx.measureText(label).width+34;rounded(x,y,w,42,21,color,'#FFFFFF');ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#775965';ctx.fillText(label,x+w/2,y+21);ctx.textBaseline='alphabetic';};
   const draw=()=>{
-    // 中性桌面背景，衬出窄幅热敏纸
-    ctx.fillStyle='#D8D7D1';ctx.fillRect(0,0,width,height);
-    for(let i=0;i<420;i++){const x=(i*193)%width,y=(i*887)%height;ctx.fillStyle=i%2?'rgba(255,255,255,.035)':'rgba(30,30,25,.025)';ctx.fillRect(x,y,2,2);}
-    const px=220,pw=640,top=78,bottom=height-78;
-    ctx.save();ctx.shadowColor='rgba(0,0,0,.22)';ctx.shadowBlur=22;ctx.shadowOffsetX=3;ctx.shadowOffsetY=5;
-    ctx.beginPath();ctx.moveTo(px,top+12);
-    for(let x=px;x<px+pw;x+=18){ctx.lineTo(x+9,top);ctx.lineTo(x+18,top+12);}
-    ctx.lineTo(px+pw,bottom-12);
-    for(let x=px+pw;x>px;x-=18){ctx.lineTo(x-9,bottom);ctx.lineTo(x-18,bottom-12);}
-    ctx.closePath();ctx.fillStyle='#F7F6F0';ctx.fill();ctx.restore();
-    // 轻微热敏纸纹理和打印横纹
-    for(let y=top+20;y<bottom-8;y+=7){ctx.fillStyle='rgba(30,30,25,.012)';ctx.fillRect(px+3,y,pw-6,1);}
-    for(let i=0;i<900;i++){const x=px+8+(i*97)%(pw-16),y=top+20+(i*251)%(bottom-top-40);ctx.fillStyle=i%3?'rgba(40,40,35,.018)':'rgba(255,255,255,.10)';ctx.fillRect(x,y,1,1);}
-    ctx.fillStyle='#292925';
-    center('打 工 小 票',154,'700 40px "Courier New",Consolas,monospace');
-    center('DAILY WAGE RECEIPT',190,small);
-    center('一张小票看穿我的打工人生',224,small);
-    center(dateLabel,264,small);
-    center(`单号：${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`,296,small);
-    rule(326);
-    const mascot=document.querySelector('#officeWorker img');
-    if(mascot&&mascot.complete&&mascot.naturalWidth){ctx.save();ctx.filter='grayscale(1) contrast(1.25)';ctx.globalAlpha=.78;ctx.drawImage(mascot,468,344,144,116);ctx.restore();}
-    center('今日已计收入',492,small);
-    center(`¥ ${todayIncome().toFixed(2)}`,546,'700 52px "Courier New",Consolas,monospace');
-    rule(578);
-    ctx.textAlign='left';ctx.font=bold;ctx.fillText('工作记录',270,628);
-    ctx.font=mono;
-    row('在岗时长',m2text(workDur()),676);
-    row('上班打卡',state.clockIn?fmtTime(state.clockIn):'未打卡',720);
-    row('午休时长',m2text(lunchMinutes),764);
-    row('午休估算收入',`¥${lunchValue.toFixed(2)}`,808);
-    row('摸鱼估算收入',`¥${slackValue.toFixed(2)}`,852);
-    rule(884);
-    ctx.textAlign='left';ctx.font=bold;ctx.fillText('带薪摸鱼明细',270,930);
-    ctx.font=mono;
-    let y=978;
-    if(!records.length){ctx.fillText('( 暂 无 记 录 )',270,y);y+=56;}
-    records.forEach(record=>{
-      const names={toilet:'带薪如厕',phone:'刷手机',chat:'闲聊',walk:'到处溜达'};
-      const amount=record.minutes*hourlyRate()/60;
-      const label=`${names[record.type]||'摸鱼'} ${m2text(record.minutes)}`;
-      ctx.textAlign='left';ctx.fillText(clip(label,380),270,y);
-      ctx.textAlign='right';ctx.fillText(`+¥${amount.toFixed(2)}`,810,y);y+=56;
-    });
-    rule(y+4);y+=54;
-    ctx.textAlign='left';ctx.font=bold;ctx.fillText(`已完成事项 (${done.length})`,270,y);y+=48;
-    ctx.font=mono;
-    if(!done.length){ctx.fillText('( 暂 无 完 成 项 )',270,y);y+=48;}
-    done.forEach(item=>{ctx.textAlign='left';ctx.fillText('✓ '+clip(item.text,490),270,y);y+=48;});
-    rule(y+8);y+=58;
-    center('上班不是为了梦想，是为了生活。',y,small);y+=36;
-    center('数据仅本地生成　·　谢谢惠顾',y,small);y+=44;
-    // 传统小票底部条码
-    let bx=350;const by=y;
-    for(let i=0;i<70;i++){const bar=1+((i*7+3)%4);if(i%3!==1){ctx.fillStyle='#292925';ctx.fillRect(bx,by,bar,42);}bx+=bar+2;}
-    y+=62;center(`单据结束　${dateLabel}`,y,small);
+    const bg=ctx.createLinearGradient(0,0,width,height);bg.addColorStop(0,'#F8DDEA');bg.addColorStop(.52,'#F9ECDD');bg.addColorStop(1,'#E8F2E9');ctx.fillStyle=bg;ctx.fillRect(0,0,width,height);
+    for(let i=0;i<95;i++){const x=(i*157)%width,y=(i*313)%height;ctx.fillStyle=i%2?'rgba(255,255,255,.38)':'rgba(216,164,187,.12)';ctx.beginPath();ctx.arc(x,y,2+(i%3),0,Math.PI*2);ctx.fill();}
+    ctx.save();ctx.shadowColor='rgba(103,70,82,.20)';ctx.shadowBlur=26;ctx.shadowOffsetY=12;rounded(paper.x,paper.top,paper.w,paper.bottom-paper.top,28,'#FFFCF7');ctx.restore();
+    ctx.save();ctx.setLineDash([6,7]);ctx.lineWidth=2;ctx.strokeStyle='#E9D7D5';ctx.beginPath();ctx.roundRect(paper.x+18,paper.top+18,paper.w-36,paper.bottom-paper.top-36,20);ctx.stroke();ctx.restore();
+    // 手账胶带贴在纸张顶部
+    ctx.save();ctx.translate(540,91);ctx.rotate(-.055);rounded(-82,-16,164,38,6,'rgba(242,190,205,.82)');ctx.restore();
+    sticker(254,180,'✨',34,'#FFF8D9');sticker(824,294,'☕',38,'#E9F5E9');sticker(816,682,'💰',34,'#FFF2C9');
+    center('打工人今日战绩',171,'700 43px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif','#704B61');
+    center('MY LITTLE WORK RECEIPT',211,'600 18px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif','#AE8997');
+    pill(390,232,dateLabel,'#F9E8EE');
+    center('上班不是为了梦想，是为了生活。',325,'600 24px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif','#805D6C');
+    // 收入主贴纸
+    rounded(255,372,570,226,30,'#FFF0F4','#F4CBD8');
+    sticker(298,414,'💸',36,'#FFFFFF');
+    center('今天认真工作，收入持续到账',438,'600 22px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif','#966F7D');
+    center(`¥${todayIncome().toFixed(2)}`,526,'800 76px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif','#E64E7D');
+    center('今日已赚',568,'20px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif','#A7838E');
+    ctx.textAlign='left';ctx.fillStyle='#704F60';ctx.font=boldFont;ctx.fillText('今天的打工数据',258,664);
+    const metricRows=[
+      ['⏰ 在岗时长',m2text(workDur())],
+      ['🍚 午休计时',`${m2text(lunchMinutes)}　约¥${lunchValue.toFixed(2)}`],
+      ['🐟 带薪摸鱼',`约¥${slackValue.toFixed(2)}`],
+      ['✅ 完成待办',`${done.length} 件`]
+    ];
+    metricRows.forEach((item,i)=>{const y=710+i*51;rounded(250,y-31,580,40,14,i%2?'#F4F7EC':'#F8F0F5');ctx.font=textFont;ctx.textAlign='left';ctx.fillStyle='#725B66';ctx.fillText(item[0],270,y-3);ctx.textAlign='right';ctx.fillStyle='#614A57';ctx.fillText(item[1],810,y-3);});
+    divider(930);
+    ctx.textAlign='left';ctx.font=boldFont;ctx.fillStyle='#704F60';ctx.fillText('摸鱼小记',258,990);sticker(790,978,'🌟',30,'#FFF8D9');
+    let y=1032;
+    if(!records.length){pill(270,y-28,'今天还没有摸鱼记录','#F4F0F4');y+=58;}
+    records.forEach(record=>{const names={toilet:'带薪如厕',phone:'刷手机',chat:'闲聊',walk:'到处溜达'};const icons={toilet:'🚽',phone:'📱',chat:'💬',walk:'🚶'};const amount=record.minutes*hourlyRate()/60;rounded(250,y-32,580,46,15,'#F5F0FA','#FFFFFF');ctx.font=textFont;ctx.textAlign='left';ctx.fillStyle='#6E596D';ctx.fillText(`${icons[record.type]||'🐟'} ${names[record.type]||'摸鱼'} · ${m2text(record.minutes)}`,270,y-2);ctx.textAlign='right';ctx.fillStyle='#D75E87';ctx.fillText(`+¥${amount.toFixed(2)}`,810,y-2);y+=58;});
+    divider(y+5);y+=68;
+    ctx.textAlign='left';ctx.font=boldFont;ctx.fillStyle='#704F60';ctx.fillText(`今天完成了 ${done.length} 件小事`,258,y);sticker(792,y-10,'⭐',28,'#FFF8D9');y+=48;
+    if(!done.length){pill(270,y-26,'待办还没勾选，明天继续加油','#F4F7EC');y+=54;}
+    done.forEach((item,i)=>{rounded(250,y-31,580,44,14,i%2?'#F3F7EC':'#FFF6E8','#FFFFFF');ctx.textAlign='left';ctx.font=textFont;ctx.fillStyle='#6C5960';ctx.fillText(`✓  ${clip(item.text,510)}`,270,y-2);sticker(791,y-9,'🌼',25,'#FFFFFF');y+=54;});
+    divider(y+8);y+=66;
+    center('摸鱼可以，账还是要算清楚。',y,'700 24px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif','#805D6C');
+    center('数据仅本地生成　·　打工人电子生存指南',y+40,'18px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif','#A98891');
+    sticker(288,y+31,'🧾',28,'#FFFFFF');sticker(792,y+31,'💖',28,'#FFFFFF');
     const link=document.createElement('a');link.download=`打工小票-${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}.png`;
-    try{link.href=canvas.toDataURL('image/png');link.click();toast('热敏纸长小票已生成');}catch(e){toast('图片生成失败，请重试');}
+    try{link.href=canvas.toDataURL('image/png');link.click();toast('贴纸风长小票已生成');}catch(e){toast('图片生成失败，请重试');}
   };
   if(document.fonts&&document.fonts.ready)document.fonts.ready.then(draw);else draw();
 }
