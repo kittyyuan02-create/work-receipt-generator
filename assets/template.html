@@ -262,8 +262,8 @@
   .drink-reference-note { margin: -3px 0 6px; color: var(--ink-light); font-size: 10px; }
   .drink-reference-row .drink-name { flex: 1; min-width: 0; }
   .drink-reference-price { color: var(--ink-light); font-size: 11px; white-space: nowrap; }
-  .drink-remove { flex-shrink: 0; border: 1px solid #E6CFD4; border-radius: 999px; background: #FFF8FA; color: #9A6375; padding: 3px 8px; font: inherit; font-size: 10px; cursor: pointer; }
-  .drink-remove:hover { color: var(--red); border-color: var(--red); }
+  .drink-remove { flex-shrink: 0; min-height: 36px; border: 1px solid #E6CFD4; border-radius: 999px; background: #FFF8FA; color: #9A6375; padding: 6px 12px; font: inherit; font-size: 12px; cursor: pointer; }
+  .drink-remove:hover, .drink-remove:focus-visible { color: var(--red); border-color: var(--red); outline: 2px solid #E9A8BC; outline-offset: 2px; }
 
   /* 摸鱼 */
   .slack-total {
@@ -609,6 +609,12 @@
     font-family: inherit;
     margin-top: 8px;
   }
+  .secondary-btn { background:#F7EDF0; color:#865568; border:1px solid #E6CFD4; }
+  .danger-btn { background:#FFF0EE; color:#AE5148; border:1px solid #E9C5C1; }
+  .settings-hint { color:var(--ink-light); font-size:11px; line-height:1.6; margin:8px 0; }
+  .history-list { display:grid; gap:8px; }
+  .history-row { display:flex; justify-content:space-between; gap:10px; padding:10px 12px; border-radius:8px; background:var(--card); color:var(--ink-light); font-size:12px; }
+  .history-row strong { color:var(--ink); }
 
   /* ===== 摸鱼弹层 ===== */
   .modal-overlay {
@@ -751,6 +757,8 @@
     box-shadow: 0 3px 10px rgba(120,70,80,.08);
   }
   .share-note { text-align:center; font-size:10px; color:var(--ink-light); margin:-6px 0 12px; }
+  .setup-note { background:#FFF2C9; border:1px solid #E8D79B; border-radius:10px; padding:12px; margin:0 0 10px; color:#705B2B; font-size:12px; line-height:1.6; }
+  .setup-note button { display:block; margin:8px auto 0; border:0; border-radius:999px; padding:8px 14px; background:#E9C85D; color:#594617; font:inherit; font-weight:700; cursor:pointer; }
   .activity-btn {
     width:100%; border:1px solid #E4C3CB; border-radius:9px; padding:10px 12px;
     background:#FFF8FA; color:#96556A; font:inherit; font-size:12px; font-weight:700; cursor:pointer;
@@ -795,10 +803,10 @@
         <div>
           <div class="ti-label">在岗时长</div>
           <div class="ti-time" id="workDur">0分钟</div>
-          <div class="ti-sub" id="timeRange">--:-- → --:--</div>
+          <div class="ti-sub" id="timeRange">本次 --:-- → --:--</div>
         </div>
         <div style="text-align:right">
-          <div class="ti-label">今日收入</div>
+          <div class="ti-label">今日估算收入</div>
           <div class="ti-money" id="todayMoney">¥0.00</div>
         </div>
       </div>
@@ -862,6 +870,7 @@
     <button class="share-export" onclick="exportTodayReceipt()">📸 生成今日手帐贴纸小票</button>
     <div class="share-note">图片在本地生成；发朋友圈前记得检查展示内容</div>
 
+    <div class="setup-note" id="setupNudge" style="display:none">第一次使用，先填写月薪和作息，收入才会按你的情况计算。<button onclick="openSettingsPage()">去设置</button></div>
     <button class="clock-btn start" id="clockBtn" onclick="toggleClock()">▶ 上班打卡</button>
   </div>
 
@@ -885,7 +894,7 @@
           <div class="stat-value" id="statWorked">0 天</div>
         </div>
         <div class="stat-box">
-          <div class="stat-label">已赚工资</div>
+          <div class="stat-label">按工作日估算</div>
           <div class="stat-value orange" id="statEarned">¥0</div>
         </div>
         <div class="stat-box">
@@ -918,6 +927,11 @@
         <span class="countdown-days">未设置</span>
       </div>
     </div>
+
+    <div class="card">
+      <div class="card-title">最近打工记录</div>
+      <div id="dailyHistoryList" class="history-list"></div>
+    </div>
   </div>
 
   <!-- ===== 画饼页 ===== -->
@@ -939,7 +953,7 @@
         <p style="font-size:13px; color:var(--ink-light); margin-bottom:16px;">想知道这个东西要上几天班？</p>
         <div class="form-group">
           <label class="form-label">物品价格（元）</label>
-          <input type="number" class="form-input" id="calcPrice" placeholder="例如：5000">
+          <input type="number" class="form-input" id="calcPrice" placeholder="例如：5000" min="0.01" step="0.01">
         </div>
         <button class="save-btn" onclick="calcWorkDays()">算一算</button>
         <div id="calcResult" style="margin-top:16px; text-align:center; font-size:14px; display:none;">
@@ -977,7 +991,7 @@
       <div class="card-title">薪资作息</div>
       <div class="form-group">
         <label class="form-label">月薪（元）</label>
-        <input type="number" class="form-input" id="setSalary" placeholder="15000">
+        <input type="number" class="form-input" id="setSalary" placeholder="例如：15000" min="1" max="10000000">
       </div>
       <div class="form-group">
         <label class="form-label">上班时间</label>
@@ -989,13 +1003,30 @@
       </div>
       <div class="form-group">
         <label class="form-label">午休时长（小时）</label>
-        <input type="number" class="form-input" id="setLunch" value="1" step="0.5">
+        <input type="number" class="form-input" id="setLunch" value="1" min="0" max="24" step="0.5">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="setLunchPaid">午休是否计薪</label>
+        <select class="form-input" id="setLunchPaid">
+          <option value="true">带薪午休（计入今日收入）</option>
+          <option value="false">不计薪午休（从收入扣除）</option>
+        </select>
       </div>
       <div class="form-group">
         <label class="form-label">发薪日（每月几号）</label>
         <input type="number" class="form-input" id="setPayday" value="10" min="1" max="31">
       </div>
       <button class="save-btn" onclick="saveSettings()">保存设置</button>
+      <p class="settings-hint">收入是按你填写的月薪作息进行的趣味估算，不等于实际工资或工资条。</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">本地数据管理</div>
+      <p class="settings-hint">数据保存在当前浏览器。备份文件包含薪资和记录，请妥善保管；浏览器清理数据可能会删除它们。</p>
+      <button class="save-btn secondary-btn" onclick="downloadBackup()">下载数据备份</button>
+      <button class="save-btn secondary-btn" onclick="document.getElementById('restoreBackupFile').click()">从备份恢复</button>
+      <input id="restoreBackupFile" type="file" accept="application/json,.json" style="display:none" onchange="restoreBackupFile(this.files[0]); this.value=''">
+      <button class="save-btn danger-btn" onclick="resetAllData()">清空所有本地数据</button>
     </div>
 
     <div class="card">
@@ -1084,31 +1115,25 @@ const WORKER_IMAGE_SRC = document.querySelector('#officeWorker img').src;
 document.getElementById('navWorkerIcon').src = WORKER_IMAGE_SRC;
 // ===== 状态 =====
 let state = {
-  monthlySalary: 15000,
+  monthlySalary: 0,
   workStart: '09:30',
   workEnd: '18:30',
   lunchBreak: 1,
+  lunchPaid: true,
   payDay: 10,
   isWorking: false,
   clockIn: null,
   clockOut: null,
-  todos: [
-    { text: '交季度报告', done: true, cat: 'work' },
-    { text: '约牙医', done: false, cat: 'life' },
-    { text: '买猫粮', done: true, cat: 'life' },
-    { text: '回复小王周五的事', done: false, cat: 'work' },
-    { text: '计划周末出游', done: false, cat: 'life' }
-  ],
+  workSessions: [],
+  dailyDate: localDateKey(new Date()),
+  dailyHistory: [],
+  todos: [],
   drinks: [
     { name: '拿铁', price: 22 },
     { name: '珍珠奶茶', price: 18 }
   ],
   slackRecords: [],
-  goals: [
-    { name: '去京都旅行', target: 8000, saved: 3449, icon: '✈️' },
-    { name: '换新电脑', target: 12000, saved: 2640, icon: '💻' }
-  ],
-  fish: 17,
+  goals: [],
   currentSlack: null,
   lunchRecords: [],
   currentLunch: null,
@@ -1150,6 +1175,15 @@ function validDate(value) {
   const date = new Date(value);
   return Number.isFinite(date.getTime()) ? date : null;
 }
+function localDateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+function validDateKey(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
 function normalizeState(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
   const base = state;
@@ -1157,19 +1191,37 @@ function normalizeState(raw) {
   const list = (value, fallback, limit, mapper) => Array.isArray(value) ? value.slice(0, limit).map(mapper).filter(Boolean) : fallback;
   const workStart = validTime(raw.workStart, base.workStart);
   const workEnd = validTime(raw.workEnd, base.workEnd);
+  const loadedClockIn = validDate(raw.clockIn);
+  const storedSalary = Number(raw.monthlySalary);
+  const monthlySalary = Number.isFinite(storedSalary) && storedSalary >= 0
+    ? Math.min(10000000, storedSalary) : base.monthlySalary;
   let shiftMins = t2m(workEnd) - t2m(workStart);
   if (shiftMins <= 0) shiftMins += 1440;
   const lunchBreak = Math.min(finiteNumber(raw.lunchBreak, base.lunchBreak, 0, 24), Math.max(0, (shiftMins - 1) / 60));
   state = {
     ...base,
-    monthlySalary: finiteNumber(raw.monthlySalary, base.monthlySalary, 1, 10000000),
+    monthlySalary,
     workStart,
     workEnd,
     lunchBreak,
+    lunchPaid: typeof raw.lunchPaid === 'boolean' ? raw.lunchPaid : base.lunchPaid,
     payDay: Math.round(finiteNumber(raw.payDay, base.payDay, 1, 31)),
     isWorking: raw.isWorking === true,
-    clockIn: validDate(raw.clockIn),
+    clockIn: loadedClockIn,
     clockOut: validDate(raw.clockOut),
+    workSessions: list(raw.workSessions, base.workSessions, 10, session => {
+      const start = session && validDate(session.start), end = session && validDate(session.end);
+      return start && end && end >= start ? { start, end } : null;
+    }),
+    dailyDate: validDateKey(raw.dailyDate)
+      ? raw.dailyDate : (loadedClockIn ? localDateKey(loadedClockIn) : localDateKey(new Date())),
+    dailyHistory: list(raw.dailyHistory, base.dailyHistory, 90, item => item && typeof item === 'object' && validDateKey(item.date) ? {
+      date: item.date, workMinutes: finiteNumber(item.workMinutes, 0, 0, 2880),
+      income: finiteNumber(item.income, 0, 0, 10000000),
+      lunchMinutes: finiteNumber(item.lunchMinutes, 0, 0, 1440),
+      slackMinutes: finiteNumber(item.slackMinutes, 0, 0, 1440),
+      completedTodos: Array.isArray(item.completedTodos) ? item.completedTodos.slice(0, 300).map(todo => String(todo).slice(0, 160)) : []
+    } : null),
     todos: list(raw.todos, base.todos, 300, item => item && typeof item === 'object' ? {
       text: text(item.text, 160), done: item.done === true, cat: item.cat === 'life' ? 'life' : 'work'
     } : null),
@@ -1187,7 +1239,6 @@ function normalizeState(raw) {
       name: text(item.name, 80), target: finiteNumber(item.target, 1, 1, 1000000000),
       saved: finiteNumber(item.saved, 0, 0, 1000000000), icon: text(item.icon || '🎯', 8)
     } : null),
-    fish: finiteNumber(raw.fish, base.fish, 0, 1000000),
     currentSlack: raw.currentSlack && ['toilet', 'phone', 'chat', 'walk'].includes(raw.currentSlack.type) && validDate(raw.currentSlack.start)
       ? { type: raw.currentSlack.type, start: validDate(raw.currentSlack.start) } : null,
     currentLunch: raw.currentLunch && validDate(raw.currentLunch.start)
@@ -1213,29 +1264,84 @@ function save() {
     return false;
   }
 }
+function rolloverToToday() {
+  const today = localDateKey(new Date());
+  if (!state.dailyDate || state.dailyDate >= today) return false;
+  const boundary = new Date(`${state.dailyDate}T00:00:00`);
+  boundary.setDate(boundary.getDate() + 1);
+  const boundaryMs = boundary.getTime();
+  if (state.currentSlack) {
+    const start = new Date(state.currentSlack.start).getTime();
+    const mins = Math.max(0, Math.min(boundaryMs, Date.now()) - start) / 60000;
+    if (mins > 0) state.slackRecords.push({ type: state.currentSlack.type, minutes: Math.round(mins * 10) / 10 });
+  }
+  if (state.currentLunch) {
+    const start = new Date(state.currentLunch.start).getTime();
+    const mins = Math.max(0, Math.min(boundaryMs, Date.now()) - start) / 60000;
+    if (mins > 0) state.lunchRecords.push({ minutes: Math.round(mins * 10) / 10 });
+  }
+  state.currentSlack = state.currentLunch = null;
+  if (state.isWorking && (!state.clockOut || state.clockOut > boundary)) state.clockOut = boundary;
+  state.workSessions = state.workSessions.map(session => ({
+    start: session.start > boundary ? boundary : session.start,
+    end: session.end > boundary ? boundary : session.end
+  })).filter(session => session.end > session.start);
+  const completedTodos = state.todos.filter(todo => todo.done).map(todo => todo.text);
+  const lunchMinutes = (state.lunchRecords || []).reduce((sum, record) => sum + record.minutes, 0);
+  const slackMinutes = (state.slackRecords || []).reduce((sum, record) => sum + record.minutes, 0);
+  const completedWorkMinutes = workDur();
+  const completedIncome = todayIncome();
+  if (state.clockIn || state.workSessions.length || lunchMinutes || slackMinutes || completedTodos.length) {
+    state.dailyHistory.unshift({ date: state.dailyDate, workMinutes: completedWorkMinutes, income: completedIncome, lunchMinutes, slackMinutes, completedTodos });
+    state.dailyHistory = state.dailyHistory.slice(0, 90);
+  }
+  [state.timerInt, state.slackTimerInt, state.lunchTimerInt].forEach(timer => { if (timer) clearInterval(timer); });
+  state.timerInt = state.slackTimerInt = state.lunchTimerInt = null;
+  state.isWorking = false;
+  state.clockIn = state.clockOut = null;
+  state.workSessions = [];
+  state.currentSlack = state.currentLunch = null;
+  state.slackRecords = [];
+  state.lunchRecords = [];
+  state.todos = state.todos.filter(todo => !todo.done);
+  state.dailyDate = today;
+  save();
+  return true;
+}
 
 function hourlyRate() {
   let shiftMins = t2m(state.workEnd) - t2m(state.workStart);
   if (shiftMins <= 0) shiftMins += 1440;
-  const workMins = shiftMins - state.lunchBreak * 60;
+  const workMins = shiftMins - (state.lunchPaid ? 0 : state.lunchBreak * 60);
   if (!Number.isFinite(workMins) || workMins <= 0 || !Number.isFinite(state.monthlySalary)) return 0;
   return (state.monthlySalary / 21.75) / (workMins / 60);
 }
 function t2m(t) { const [h,m] = t.split(':').map(Number); return h*60+m; }
 function m2text(mins) {
-  const h = Math.floor(mins/60), m = Math.round(mins%60);
+  const total = Math.max(0, Math.round(Number(mins) || 0));
+  const h = Math.floor(total/60), m = total%60;
   return h === 0 ? m+'分钟' : h+'小时'+(m>0?m+'分钟':'');
 }
+function lunchDurationMinutes() {
+  return (state.lunchRecords || []).reduce((sum, record) => sum + finiteNumber(record.minutes, 0, 0, 1440), 0) +
+    (state.currentLunch ? Math.max(0, (Date.now() - new Date(state.currentLunch.start)) / 60000) : 0);
+}
+function slackDurationMinutes() {
+  return (state.slackRecords || []).reduce((sum, record) => sum + finiteNumber(record.minutes, 0, 0, 1440), 0) +
+    (state.currentSlack ? Math.max(0, (Date.now() - new Date(state.currentSlack.start)) / 60000) : 0);
+}
+function incomeForElapsedMinutes(elapsedMinutes) {
+  const unpaidLunch = state.lunchPaid ? 0 : Math.min(elapsedMinutes, lunchDurationMinutes());
+  return Math.max(0, elapsedMinutes - unpaidLunch) * hourlyRate() / 60;
+}
 function todayIncome() {
-  if (!state.clockIn) return 0;
-  const end = state.clockOut || (state.isWorking ? new Date() : null);
-  if (!end) return 0;
-  return Math.max(0, (end - state.clockIn) / 1000 / 60 * hourlyRate() / 60);
+  return incomeForElapsedMinutes(workDur());
 }
 function workDur() {
-  if (!state.clockIn) return 0;
-  const end = state.clockOut || new Date();
-  return (end - state.clockIn) / 1000 / 60;
+  const completed = (state.workSessions || []).reduce((sum, session) => sum + Math.max(0, (session.end - session.start) / 60000), 0);
+  if (!state.clockIn) return completed;
+  const end = state.clockOut || (state.isWorking ? new Date() : null);
+  return completed + (end ? Math.max(0, (end - state.clockIn) / 60000) : 0);
 }
 function fmtTime(d) {
   return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
@@ -1243,15 +1349,16 @@ function fmtTime(d) {
 
 // ===== 分享小票图片（纯本地 Canvas，不上传任何数据） =====
 function exportTodayReceipt() {
+  if (!(state.monthlySalary > 0)) { toast('先设置月薪，才能生成收入小票'); openSettingsPage(); return; }
   const width=1080, now=new Date(), done=state.todos.filter(item=>item.done), records=state.slackRecords||[];
   const height=1600+Math.max(records.length-1,0)*58+Math.max(done.length-1,0)*54;
   if (height > 16000) { toast('记录较多，请减少部分条目后再导出长图'); return; }
   const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
   const ctx=canvas.getContext('2d');
   const dateLabel=`${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 ${['周日','周一','周二','周三','周四','周五','周六'][now.getDay()]}`;
-  const lunchMinutes=(state.lunchRecords||[]).reduce((sum,r)=>sum+r.minutes,0)+(state.currentLunch?(Date.now()-new Date(state.currentLunch.start))/60000:0);
-  const lunchValue=lunchMinutes*hourlyRate()/60;
-  const slackValue=records.reduce((sum,r)=>sum+r.minutes*hourlyRate()/60,0);
+  const lunchMinutes=lunchDurationMinutes();
+  const lunchValue=state.lunchPaid?lunchMinutes*hourlyRate()/60:0;
+  const slackValue=slackDurationMinutes()*hourlyRate()/60;
   const paper={x:190,w:700,top:86,bottom:height-86};
   const textFont='26px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif';
   const smallFont='21px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif';
@@ -1283,8 +1390,8 @@ function exportTodayReceipt() {
     ctx.textAlign='left';ctx.fillStyle='#704F60';ctx.font=boldFont;ctx.fillText('今天的打工数据',258,664);
     const metricRows=[
       ['⏰ 在岗时长',m2text(workDur())],
-      ['🍚 午休计时',`${m2text(lunchMinutes)}　约¥${lunchValue.toFixed(2)}`],
-      ['🐟 带薪摸鱼',`约¥${slackValue.toFixed(2)}`],
+      [state.lunchPaid?'🍚 午休（计薪）':'🍚 午休（不计薪）',state.lunchPaid?`${m2text(lunchMinutes)}　约¥${lunchValue.toFixed(2)}`:m2text(lunchMinutes)],
+      ['🐟 其中：带薪摸鱼',`约¥${slackValue.toFixed(2)}`],
       ['✅ 完成待办',`${done.length} 件`]
     ];
     metricRows.forEach((item,i)=>{const y=710+i*51;rounded(250,y-31,580,40,14,i%2?'#F4F7EC':'#F8F0F5');ctx.font=textFont;ctx.textAlign='left';ctx.fillStyle='#725B66';ctx.fillText(item[0],270,y-3);ctx.textAlign='right';ctx.fillStyle='#614A57';ctx.fillText(item[1],810,y-3);});
@@ -1299,7 +1406,7 @@ function exportTodayReceipt() {
     done.forEach((item,i)=>{rounded(250,y-31,580,44,14,i%2?'#F3F7EC':'#FFF6E8','#FFFFFF');ctx.textAlign='left';ctx.font=textFont;ctx.fillStyle='#6C5960';ctx.fillText(`✓  ${clip(item.text,510)}`,270,y-2);sticker(791,y-9,'🌼',25,'#FFFFFF');y+=54;});
     divider(y+8);y+=66;
     center('摸鱼可以，账还是要算清楚。',y,'700 24px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif','#805D6C');
-    center('数据仅本地生成　·　打工人电子生存指南',y+40,'18px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif','#A98891');
+    center('趣味估算，非正式工资　·　数据在本地生成',y+40,'18px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif','#A98891');
     sticker(288,y+31,'🧾',28,'#FFFFFF');sticker(792,y+31,'💖',28,'#FFFFFF');
     const link=document.createElement('a');link.download=`打工小票-${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}.png`;
     try{link.href=canvas.toDataURL('image/png');link.click();toast('贴纸风长小票已生成');}catch(e){toast('图片生成失败，请重试');}
@@ -1313,13 +1420,18 @@ function switchPage(name, btn) {
   document.getElementById('page' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   btn.classList.add('active');
-  if (name === 'cal') renderCalendar();
+  if (name === 'cal') { renderDailyHistory(); renderCalendar(); }
   if (name === 'goal') renderGoals();
   if (name === 'todo') renderTodoFull();
+}
+function openSettingsPage() {
+  const settingsButton = document.querySelector('.bottom-nav .nav-item:last-child');
+  if (settingsButton) switchPage('settings', settingsButton);
 }
 
 // ===== 首页渲染 =====
 function renderHome() {
+  rolloverToToday();
   const now = new Date();
   const days = ['周日','周一','周二','周三','周四','周五','周六'];
   document.getElementById('dateText').textContent =
@@ -1331,20 +1443,21 @@ function renderHome() {
 
   document.getElementById('workDur').textContent = m2text(workDur());
   document.getElementById('todayMoney').textContent = '¥' + todayIncome().toFixed(2);
+  document.getElementById('setupNudge').style.display = state.monthlySalary > 0 ? 'none' : 'block';
 
   if (state.clockIn) {
     const out = state.clockOut ? fmtTime(state.clockOut) : '--:--';
-    document.getElementById('timeRange').textContent = `${fmtTime(state.clockIn)} → ${out}`;
-  }
+    document.getElementById('timeRange').textContent = `本次 ${fmtTime(state.clockIn)} → ${out}`;
+  } else document.getElementById('timeRange').textContent = '本次 --:-- → --:--';
 
   let shiftMins = t2m(state.workEnd) - t2m(state.workStart);
   if (shiftMins <= 0) shiftMins += 1440;
-  const totalMins = shiftMins - state.lunchBreak*60;
+  const totalMins = shiftMins;
   document.getElementById('progFill').style.width = Math.min(100, workDur()/totalMins*100) + '%';
 
   // 待办
   const todoEl = document.getElementById('homeTodoList');
-  todoEl.innerHTML = '';
+  todoEl.innerHTML = state.todos.length ? '' : '<div class="empty-state">今天还没有待办，添加一条自己的小事吧。</div>';
   state.todos.slice(0, 5).forEach((t, i) => {
     todoEl.innerHTML += `
       <div class="todo-row ${t.done?'done':''}">
@@ -1355,18 +1468,19 @@ function renderHome() {
 
   // 饮品
   const drEl = document.getElementById('homeDrinkList');
-  const lunchMins = (state.lunchRecords || []).reduce((sum, r) => sum + r.minutes, 0) + (state.currentLunch ? (Date.now() - new Date(state.currentLunch.start)) / 60000 : 0);
-  const lunchPay = lunchMins * hourlyRate() / 60;
+  const lunchMins = lunchDurationMinutes();
+  const lunchPay = state.lunchPaid ? lunchMins * hourlyRate() / 60 : 0;
   drEl.innerHTML = `<div class="drink-row">
     <span class="drink-name">🍚 午休</span>
     <span class="drink-mins">${m2text(lunchMins)}</span>
-    <span class="drink-cost">约赚 ¥${lunchPay.toFixed(2)}</span>
+    <span class="drink-cost">${state.lunchPaid ? `计薪 ¥${lunchPay.toFixed(2)}` : '不计薪'}</span>
   </div>`;
   state.drinks.forEach(d => {
     const rate = hourlyRate();
     const mins = rate > 0 ? Math.round(d.price / rate * 60) : 0;
+    const durationText = rate > 0 ? `≈${mins}分钟班` : '设置薪资后换算';
     drEl.innerHTML += `<div class="drink-row drink-reference-row">
-      <span class="drink-name">🥤 ${escapeHTML(d.name)} ≈${mins}分钟班</span>
+      <span class="drink-name">🥤 ${escapeHTML(d.name)} ${durationText}</span>
       <span class="drink-reference-price">参考价 ¥${d.price.toFixed(0)}</span>
       <button class="drink-remove" aria-label="移除${escapeHTML(d.name)}换算参考" onclick="removeDrink(${state.drinks.indexOf(d)})">移除</button>
     </div>`;
@@ -1396,6 +1510,9 @@ function renderHome() {
     const pct = Math.round(g.saved / g.target * 100);
     document.getElementById('homeGoalName').textContent = g.icon + ' ' + g.name;
     document.getElementById('homeGoalPct').textContent = pct + '%';
+  } else {
+    document.getElementById('homeGoalName').textContent = '还没有存钱目标';
+    document.getElementById('homeGoalPct').textContent = '去添加';
   }
 
   // 下班印章
@@ -1405,14 +1522,21 @@ function renderHome() {
     document.getElementById('officeBubble').textContent = '下班啦！今天辛苦了，收入已结算';
     document.getElementById('officeWorker').innerHTML = `<img src="${WORKER_IMAGE_SRC}" alt="下班的打工女孩">`;
   } else if (state.isWorking) {
+    document.getElementById('offStamp').classList.add('hidden');
     document.getElementById('officeBubble').textContent = '加油赚钱中...';
     document.getElementById('officeWorker').innerHTML = `<img src="${WORKER_IMAGE_SRC}" alt="正在工作的打工女孩">`;
+  } else {
+    document.getElementById('offStamp').classList.add('hidden');
+    document.getElementById('footerQuote').textContent = '踏踏实实上了一天班，辛苦啦，给自己点个赞！';
   }
 
 
   // 打卡按钮
   const btn = document.getElementById('clockBtn');
-  if (state.isWorking) {
+  if (!(state.monthlySalary > 0)) {
+    btn.textContent = '先设置薪资作息';
+    btn.className = 'clock-btn start';
+  } else if (state.isWorking) {
     btn.textContent = '⏹ 下班打卡';
     btn.className = 'clock-btn end';
   } else {
@@ -1423,18 +1547,29 @@ function renderHome() {
 
 // ===== 打卡 =====
 function toggleClock() {
+  rolloverToToday();
+  if (!(state.monthlySalary > 0)) {
+    toast('先填写月薪和作息，再开始打卡');
+    openSettingsPage();
+    return;
+  }
   if (!state.isWorking) {
+    if (state.clockIn && state.clockOut) {
+      state.workSessions.push({ start: state.clockIn, end: state.clockOut });
+      state.workSessions = state.workSessions.slice(-10);
+    }
     state.clockIn = new Date();
     state.clockOut = null;
     state.isWorking = true;
-    state.fish += 1;
     toast('打卡上班！开始赚钱啦');
     startTick();
   } else {
+    if (state.currentLunch) endLunch();
+    if (state.currentSlack) endSlack();
     state.clockOut = new Date();
     state.isWorking = false;
     stopTick();
-    toast('下班啦！今天辛苦了 +1鱼干');
+    toast('下班啦！今天辛苦了');
   }
   save(); renderHome();
 }
@@ -1514,8 +1649,8 @@ function pickDrink(name, price) {
   state.drinks.push({ name, price });
   save(); renderHome(); closeDrinkModal();
   const rate = hourlyRate();
-  const mins = rate > 0 ? Math.round(price / rate * 60) : 0;
-  toast(`${name} = 上班${mins}分钟`);
+  if (rate > 0) toast(`${name} = 上班${Math.round(price / rate * 60)}分钟`);
+  else toast('先设置月薪，再计算饮品对应的工时');
 }
 function removeDrink(index) {
   if (!Number.isInteger(index) || index < 0 || index >= state.drinks.length) return;
@@ -1540,12 +1675,14 @@ function updateActivityControls() {
 }
 function slackActivityName(type) { return ({toilet:'带薪如厕', phone:'刷手机', chat:'闲聊', walk:'溜达'})[type] || '带薪摸鱼'; }
 function toggleSlackControl() {
+  if (!state.isWorking && !state.currentSlack) { toast('请先上班打卡，再开始摸鱼计时'); return; }
   if (state.currentLunch) return;
   if (state.currentSlack) { endSlack(); return; }
   if (state.slackRecords.length >= 250) { toast('今日摸鱼记录已达250条上限'); return; }
   openSlackModal();
 }
 function toggleLunch() {
+  if (!state.isWorking && !state.currentLunch) { toast('请先上班打卡，再开始午休计时'); return; }
   if (state.currentSlack) { if (state.currentSlack.type === 'lunch') endLunch(); return; }
   if (state.currentLunch) { endLunch(); return; }
   if (state.lunchRecords.length >= 250) { toast('今日午休记录已达250条上限'); return; }
@@ -1553,7 +1690,8 @@ function toggleLunch() {
   save();
   state.lunchTimerInt = setInterval(() => {
     const mins = (Date.now() - new Date(state.currentLunch.start)) / 60000;
-    document.getElementById('lunchSummary').innerHTML = `<span class="drink-name">🍚 午休计时中</span><span class="drink-mins">${m2text(mins)}</span><span class="drink-cost">约赚 ¥${(mins * hourlyRate()/60).toFixed(2)}</span>`;
+    const lunchText = state.lunchPaid ? `计薪 ¥${(mins * hourlyRate()/60).toFixed(2)}` : '不计薪';
+    document.getElementById('lunchSummary').innerHTML = `<span class="drink-name">🍚 午休计时中</span><span class="drink-mins">${m2text(mins)}</span><span class="drink-cost">${lunchText}</span>`;
     updateActivityControls();
   }, 1000);
   renderHome();
@@ -1568,7 +1706,9 @@ function endLunch() {
   if (state.lunchTimerInt) clearInterval(state.lunchTimerInt);
   state.lunchTimerInt = null;
   save(); renderHome();
-  toast(`午休结束，计入 ${m2text(mins)} · ¥${(mins * hourlyRate()/60).toFixed(2)}`);
+  toast(state.lunchPaid
+    ? `午休结束，已计薪 ${m2text(mins)} · ¥${(mins * hourlyRate()/60).toFixed(2)}`
+    : `午休结束，已记录 ${m2text(mins)}（不计薪）`);
 }
 function openSlackModal() {
   document.getElementById('slackModal').classList.add('active');
@@ -1735,6 +1875,20 @@ async function renderCalendar() {
   if (cd < 0) cd += daysInMonth;
   document.getElementById('cdSalary').textContent = cd + ' 天';
 }
+function renderDailyHistory() {
+  const list = document.getElementById('dailyHistoryList');
+  if (!list) return;
+  const entries = state.dailyHistory.slice(0, 7);
+  if (!entries.length) {
+    list.innerHTML = '<div class="empty-state">跨天后会自动归档在这里。</div>';
+    return;
+  }
+  list.innerHTML = entries.map(item => `
+    <div class="history-row">
+      <span><strong>${escapeHTML(item.date)}</strong> · ${m2text(item.workMinutes)} 在岗</span>
+      <span>¥${item.income.toFixed(2)}</span>
+    </div>`).join('');
+}
 function findNextHoliday(now) {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   for (let offset = 0; offset <= 1; offset++) {
@@ -1756,7 +1910,7 @@ function renderGoals() {
   if (!state.goals.length) list.innerHTML = '<div class="empty-state">还没有目标，添加一个想为之努力的小愿望吧。</div>';
   state.goals.forEach((g, i) => {
     const pct = Math.min(100, Math.round(g.saved / g.target * 100));
-    const daysLeft = Math.ceil((g.target - g.saved) / (state.monthlySalary / 21.75));
+    const daysLeft = state.monthlySalary > 0 ? Math.ceil((g.target - g.saved) / (state.monthlySalary / 21.75)) : null;
     list.innerHTML += `
       <div class="goal-card current">
         <div class="goal-head">
@@ -1767,7 +1921,7 @@ function renderGoals() {
         </div>
         <div class="goal-bar"><div class="goal-bar-fill" style="width:${pct}%"></div></div>
         <div class="goal-meta">
-          已计入收入 ¥${g.saved.toFixed(0)} · 还差约 ${daysLeft} 个工作日
+          已计入收入 ¥${g.saved.toFixed(0)} · ${daysLeft === null ? '设置月薪后显示预计工时' : `还差约 ${daysLeft} 个工作日`}
         </div>
       </div>`;
   });
@@ -1808,10 +1962,12 @@ function calcWorkDays() {
 
 // ===== 设置 =====
 function saveSettings() {
+  const hadSalary = state.monthlySalary > 0;
   const salary = Number(document.getElementById('setSalary').value);
   const workStart = document.getElementById('setStart').value;
   const workEnd = document.getElementById('setEnd').value;
   const lunchBreak = Number(document.getElementById('setLunch').value);
+  const lunchPaid = document.getElementById('setLunchPaid').value === 'true';
   const payDay = Number(document.getElementById('setPayday').value);
   const startMins = t2m(workStart), endMins = t2m(workEnd);
   const shiftMins = endMins > startMins ? endMins - startMins : endMins + 1440 - startMins;
@@ -1826,9 +1982,63 @@ function saveSettings() {
   state.workStart = workStart;
   state.workEnd = workEnd;
   state.lunchBreak = lunchBreak;
+  state.lunchPaid = lunchPaid;
   state.payDay = payDay;
   save(); renderHome(); renderCalendar();
-  toast('设置已保存');
+  if (!hadSalary) {
+    toast('设置已保存，可以开始打卡了');
+    const homeButton = document.querySelector('.bottom-nav .nav-item:first-child');
+    if (homeButton) switchPage('home', homeButton);
+  } else toast('设置已保存');
+}
+
+function downloadBackup() {
+  const { timerInt, slackTimerInt, lunchTimerInt, ...savedState } = state;
+  const backup = { app: 'work-receipt-generator', version: 1, exportedAt: new Date().toISOString(), state: savedState };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `打工小票数据备份-${localDateKey(new Date())}.json`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast('备份已下载到本地');
+}
+async function restoreBackupFile(file) {
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { toast('备份文件超过2MB，无法导入'); return; }
+  if (!confirm('导入会替换当前浏览器里的工资设置和记录，确定继续吗？')) return;
+  try {
+    const backup = JSON.parse(await file.text());
+    if (backup.app !== 'work-receipt-generator' || backup.version !== 1 || !backup.state) throw new Error('invalid backup');
+    [state.timerInt, state.slackTimerInt, state.lunchTimerInt].forEach(timer => { if (timer) clearInterval(timer); });
+    normalizeState(backup.state);
+    rolloverToToday();
+    save();
+    document.getElementById('setSalary').value = state.monthlySalary || '';
+    document.getElementById('setStart').value = state.workStart;
+    document.getElementById('setEnd').value = state.workEnd;
+    document.getElementById('setLunch').value = state.lunchBreak;
+    document.getElementById('setLunchPaid').value = String(state.lunchPaid);
+    document.getElementById('setPayday').value = state.payDay;
+    renderHome(); renderTodoFull(); renderGoals(); renderDailyHistory();
+    if (state.isWorking) startTick();
+    if (state.currentSlack) state.slackTimerInt = setInterval(updateSlackTimer, 1000);
+    if (state.currentLunch) state.lunchTimerInt = setInterval(() => {
+      renderHome();
+    }, 1000);
+    toast('备份已恢复');
+  } catch(e) { toast('备份文件无效或无法读取'); }
+}
+function resetAllData() {
+  if (!confirm('这会清除本浏览器保存的薪资设置、待办、目标和记录，且无法撤销。建议先下载备份。确定清空吗？')) return;
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key === 'catSalaryState' || key.startsWith('workReceiptHoliday_')) localStorage.removeItem(key);
+    }
+    location.reload();
+  } catch(e) { toast('浏览器未允许清除本地数据'); }
 }
 
 // ===== toast =====
@@ -1845,18 +2055,25 @@ document.getElementById('drinkModal').addEventListener('click', e => { if (e.tar
 
 // ===== 初始化 =====
 load();
-document.getElementById('setSalary').value = state.monthlySalary;
+rolloverToToday();
+document.getElementById('setSalary').value = state.monthlySalary || '';
 document.getElementById('setStart').value = state.workStart;
 document.getElementById('setEnd').value = state.workEnd;
 document.getElementById('setLunch').value = state.lunchBreak;
+document.getElementById('setLunchPaid').value = String(state.lunchPaid);
 document.getElementById('setPayday').value = state.payDay;
 renderHome();
+if (state.isWorking) startTick();
 if (state.currentSlack) state.slackTimerInt = setInterval(updateSlackTimer, 1000);
 if (state.currentLunch) state.lunchTimerInt = setInterval(() => {
   const mins = (Date.now() - new Date(state.currentLunch.start)) / 60000;
-  document.getElementById('lunchSummary').innerHTML = `<span class="drink-name">🍚 午休计时中</span><span class="drink-mins">${m2text(mins)}</span><span class="drink-cost">约赚 ¥${(mins * hourlyRate()/60).toFixed(2)}</span>`;
+  const lunchText = state.lunchPaid ? `计薪 ¥${(mins * hourlyRate()/60).toFixed(2)}` : '不计薪';
+  document.getElementById('lunchSummary').innerHTML = `<span class="drink-name">🍚 午休计时中</span><span class="drink-mins">${m2text(mins)}</span><span class="drink-cost">${lunchText}</span>`;
   updateActivityControls();
 }, 1000);
+setInterval(() => {
+  if (rolloverToToday()) renderHome();
+}, 60000);
 </script>
 </body>
 </html>
