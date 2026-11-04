@@ -1599,6 +1599,23 @@ function endSlack() {
 
 // ===== 日历 =====
 const holidayCache = {};
+async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 3000) {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  let timeoutId;
+  const request = fetch(url, { ...options, ...(controller ? { signal: controller.signal } : {}) })
+    .then(response => {
+      if (!response.ok) throw new Error('holiday request failed');
+      return response.json();
+    });
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      if (controller) controller.abort();
+      reject(new Error('holiday request timed out'));
+    }, timeoutMs);
+  });
+  try { return await Promise.race([request, timeout]); }
+  finally { clearTimeout(timeoutId); }
+}
 async function fetchHolidayYear(year) {
   const cacheKey = 'workReceiptHoliday_' + year;
   const cleanHolidayMap = value => {
@@ -1620,9 +1637,7 @@ async function fetchHolidayYear(year) {
     }
   } catch(e) {}
   try {
-    const response = await fetch(`https://timor.tech/api/holiday/year/${year}/?type=Y&week=Y`, { cache: 'no-store' });
-    if (!response.ok) throw new Error('holiday request failed');
-    const data = await response.json();
+    const data = await fetchJsonWithTimeout(`https://timor.tech/api/holiday/year/${year}/?type=Y&week=Y`, { cache: 'no-store' }, 3000);
     const cleanMap = data && data.code === 0 ? cleanHolidayMap(data.holiday) : null;
     if (!cleanMap) throw new Error('holiday data unavailable');
     holidayCache[year] = cleanMap;
