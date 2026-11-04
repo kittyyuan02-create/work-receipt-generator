@@ -998,7 +998,8 @@
         上班不是为了梦想，是为了生活。<br>
         每分钟都在赚钱，每一秒都想下班。<br>
         摸鱼可以，账还是要算清楚。<br>
-        数据仅本地保存。<br>
+        工资、待办等数据保存在当前浏览器。<br>
+        日历会联网读取节假日；字体由第三方提供。<br>
         放心，暂时还没同步给老板
       </p>
     </div>
@@ -1125,14 +1126,93 @@ const DRINK_PRESETS = [
 ];
 
 // ===== 工具 =====
-function load() {
-  const s = localStorage.getItem('catSalaryState');
-  if (s) { try { state = { ...state, ...JSON.parse(s) }; } catch(e){} }
+function escapeHTML(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char]);
 }
-function save() { localStorage.setItem('catSalaryState', JSON.stringify(state)); }
+function finiteNumber(value, fallback, min, max) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
+}
+function validTime(value, fallback) {
+  if (typeof value !== 'string' || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)) return fallback;
+  return value;
+}
+function validDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+function normalizeState(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+  const base = state;
+  const text = (value, max) => String(value ?? '').slice(0, max);
+  const list = (value, fallback, limit, mapper) => Array.isArray(value) ? value.slice(0, limit).map(mapper).filter(Boolean) : fallback;
+  const workStart = validTime(raw.workStart, base.workStart);
+  const workEnd = validTime(raw.workEnd, base.workEnd);
+  let shiftMins = t2m(workEnd) - t2m(workStart);
+  if (shiftMins <= 0) shiftMins += 1440;
+  const lunchBreak = Math.min(finiteNumber(raw.lunchBreak, base.lunchBreak, 0, 24), Math.max(0, (shiftMins - 1) / 60));
+  state = {
+    ...base,
+    monthlySalary: finiteNumber(raw.monthlySalary, base.monthlySalary, 1, 10000000),
+    workStart,
+    workEnd,
+    lunchBreak,
+    payDay: Math.round(finiteNumber(raw.payDay, base.payDay, 1, 31)),
+    isWorking: raw.isWorking === true,
+    clockIn: validDate(raw.clockIn),
+    clockOut: validDate(raw.clockOut),
+    todos: list(raw.todos, base.todos, 300, item => item && typeof item === 'object' ? {
+      text: text(item.text, 160), done: item.done === true, cat: item.cat === 'life' ? 'life' : 'work'
+    } : null),
+    drinks: list(raw.drinks, base.drinks, 40, item => item && typeof item === 'object' ? {
+      name: text(item.name, 40), price: finiteNumber(item.price, 0, 0, 5000)
+    } : null),
+    slackRecords: list(raw.slackRecords, base.slackRecords, 250, item => item && typeof item === 'object' ? {
+      type: ['toilet', 'phone', 'chat', 'walk'].includes(item.type) ? item.type : 'phone',
+      minutes: finiteNumber(item.minutes, 0, 0, 1440)
+    } : null),
+    lunchRecords: list(raw.lunchRecords, base.lunchRecords, 250, item => item && typeof item === 'object' ? {
+      minutes: finiteNumber(item.minutes, 0, 0, 1440), start: validDate(item.start)
+    } : null),
+    goals: list(raw.goals, base.goals, 100, item => item && typeof item === 'object' ? {
+      name: text(item.name, 80), target: finiteNumber(item.target, 1, 1, 1000000000),
+      saved: finiteNumber(item.saved, 0, 0, 1000000000), icon: text(item.icon || '🎯', 8)
+    } : null),
+    fish: finiteNumber(raw.fish, base.fish, 0, 1000000),
+    currentSlack: raw.currentSlack && ['toilet', 'phone', 'chat', 'walk'].includes(raw.currentSlack.type) && validDate(raw.currentSlack.start)
+      ? { type: raw.currentSlack.type, start: validDate(raw.currentSlack.start) } : null,
+    currentLunch: raw.currentLunch && validDate(raw.currentLunch.start)
+      ? { start: validDate(raw.currentLunch.start) } : null,
+    calOffset: Math.round(finiteNumber(raw.calOffset, 0, -120, 120)),
+    todoFilter: ['all', 'work', 'life'].includes(raw.todoFilter) ? raw.todoFilter : 'all',
+    timerInt: null, slackTimerInt: null, lunchTimerInt: null
+  };
+}
+function load() {
+  try {
+    const stored = localStorage.getItem('catSalaryState');
+    if (stored) normalizeState(JSON.parse(stored));
+  } catch(e) { /* 存储不可用或数据损坏时继续使用默认值 */ }
+}
+function save() {
+  try {
+    const { timerInt, slackTimerInt, lunchTimerInt, ...persisted } = state;
+    localStorage.setItem('catSalaryState', JSON.stringify(persisted));
+    return true;
+  } catch(e) {
+    toast('浏览器未能保存数据，请检查存储空间或隐私设置');
+    return false;
+  }
+}
 
 function hourlyRate() {
-  const workMins = t2m(state.workEnd) - t2m(state.workStart) - state.lunchBreak * 60;
+  let shiftMins = t2m(state.workEnd) - t2m(state.workStart);
+  if (shiftMins <= 0) shiftMins += 1440;
+  const workMins = shiftMins - state.lunchBreak * 60;
+  if (!Number.isFinite(workMins) || workMins <= 0 || !Number.isFinite(state.monthlySalary)) return 0;
   return (state.monthlySalary / 21.75) / (workMins / 60);
 }
 function t2m(t) { const [h,m] = t.split(':').map(Number); return h*60+m; }
@@ -1159,6 +1239,7 @@ function fmtTime(d) {
 function exportTodayReceipt() {
   const width=1080, now=new Date(), done=state.todos.filter(item=>item.done), records=state.slackRecords||[];
   const height=1600+Math.max(records.length-1,0)*58+Math.max(done.length-1,0)*54;
+  if (height > 16000) { toast('记录较多，请减少部分条目后再导出长图'); return; }
   const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
   const ctx=canvas.getContext('2d');
   const dateLabel=`${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 ${['周日','周一','周二','周三','周四','周五','周六'][now.getDay()]}`;
@@ -1250,7 +1331,9 @@ function renderHome() {
     document.getElementById('timeRange').textContent = `${fmtTime(state.clockIn)} → ${out}`;
   }
 
-  const totalMins = t2m(state.workEnd) - t2m(state.workStart) - state.lunchBreak*60;
+  let shiftMins = t2m(state.workEnd) - t2m(state.workStart);
+  if (shiftMins <= 0) shiftMins += 1440;
+  const totalMins = shiftMins - state.lunchBreak*60;
   document.getElementById('progFill').style.width = Math.min(100, workDur()/totalMins*100) + '%';
 
   // 待办
@@ -1260,7 +1343,7 @@ function renderHome() {
     todoEl.innerHTML += `
       <div class="todo-row ${t.done?'done':''}">
         <div class="todo-check" onclick="toggleTodo(${i})">${t.done?'✓':''}</div>
-        <span class="todo-text">${t.text}</span>
+        <span class="todo-text">${escapeHTML(t.text)}</span>
       </div>`;
   });
 
@@ -1274,9 +1357,10 @@ function renderHome() {
     <span class="drink-cost">约赚 ¥${lunchPay.toFixed(2)}</span>
   </div>`;
   state.drinks.forEach(d => {
-    const mins = Math.round(d.price / hourlyRate() * 60);
+    const rate = hourlyRate();
+    const mins = rate > 0 ? Math.round(d.price / rate * 60) : 0;
     drEl.innerHTML += `<div class="drink-row">
-      <span class="drink-name">🥤 ${d.name} ≈${mins}分钟班</span>
+      <span class="drink-name">🥤 ${escapeHTML(d.name)} ≈${mins}分钟班</span>
       <span class="drink-cost">-¥${d.price.toFixed(0)}</span>
     </div>`;
   });
@@ -1357,14 +1441,17 @@ function toggleTodo(i) {
 }
 function addTodo() {
   const text = prompt('待办事项：');
-  if (text && text.trim()) {
-    state.todos.push({ text: text.trim(), done: false, cat: 'work' });
-    save(); renderHome(); renderTodoFull();
-  }
+  if (!text || !text.trim()) return;
+  if (text.trim().length > 160) { toast('待办请控制在160个字符以内'); return; }
+  if (state.todos.length >= 300) { toast('待办最多保存300项'); return; }
+  state.todos.push({ text: text.trim(), done: false, cat: 'work' });
+  save(); renderHome(); renderTodoFull();
 }
 function addTodoFull() {
   const text = prompt('待办事项：');
   if (!text || !text.trim()) return;
+  if (text.trim().length > 160) { toast('待办请控制在160个字符以内'); return; }
+  if (state.todos.length >= 300) { toast('待办最多保存300项'); return; }
   const cat = confirm('确定是生活类吗？\n确定=生活，取消=工作') ? 'life' : 'work';
   state.todos.push({ text: text.trim(), done: false, cat });
   save(); renderHome(); renderTodoFull();
@@ -1381,7 +1468,7 @@ function renderTodoFull() {
     list.innerHTML += `
       <div class="todo-row ${t.done?'done':''}" style="padding:8px 0;">
         <div class="todo-check" onclick="toggleTodo(${idx})">${t.done?'✓':''}</div>
-        <span class="todo-text" style="font-size:14px;">${t.text}</span>
+        <span class="todo-text" style="font-size:14px;">${escapeHTML(t.text)}</span>
         <span style="margin-left:auto; width:8px; height:8px; border-radius:50%; background:${dot};"></span>
         <button class="item-actions" aria-label="删除待办" onclick="deleteTodo(${idx})">删除</button>
       </div>`;
@@ -1416,9 +1503,11 @@ function openDrinkModal() {
 }
 function closeDrinkModal() { document.getElementById('drinkModal').classList.remove('active'); }
 function pickDrink(name, price) {
+  if (state.drinks.length >= 40) { toast('饮品记录最多保存40项'); return; }
   state.drinks.push({ name, price });
   save(); renderHome(); closeDrinkModal();
-  const mins = Math.round(price / hourlyRate() * 60);
+  const rate = hourlyRate();
+  const mins = rate > 0 ? Math.round(price / rate * 60) : 0;
   toast(`${name} = 上班${mins}分钟`);
 }
 
@@ -1440,11 +1529,13 @@ function slackActivityName(type) { return ({toilet:'带薪如厕', phone:'刷手
 function toggleSlackControl() {
   if (state.currentLunch) return;
   if (state.currentSlack) { endSlack(); return; }
+  if (state.slackRecords.length >= 250) { toast('今日摸鱼记录已达250条上限'); return; }
   openSlackModal();
 }
 function toggleLunch() {
   if (state.currentSlack) { if (state.currentSlack.type === 'lunch') endLunch(); return; }
   if (state.currentLunch) { endLunch(); return; }
+  if (state.lunchRecords.length >= 250) { toast('今日午休记录已达250条上限'); return; }
   state.currentLunch = { start: new Date() };
   save();
   state.lunchTimerInt = setInterval(() => {
@@ -1510,20 +1601,33 @@ function endSlack() {
 const holidayCache = {};
 async function fetchHolidayYear(year) {
   const cacheKey = 'workReceiptHoliday_' + year;
+  const cleanHolidayMap = value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const clean = {};
+    Object.entries(value).slice(0, 400).forEach(([key, info]) => {
+      if (/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(key) && info && typeof info === 'object' && typeof info.holiday === 'boolean') {
+        clean[key] = { holiday: info.holiday, name: typeof info.name === 'string' ? info.name.slice(0, 24) : '' };
+      }
+    });
+    return Object.keys(clean).length ? clean : null;
+  };
   try {
     const saved = JSON.parse(localStorage.getItem(cacheKey) || 'null');
-    if (saved && Date.now() - saved.fetchedAt < 24 * 60 * 60 * 1000) {
-      holidayCache[year] = saved.holiday || {};
+    const cachedMap = cleanHolidayMap(saved && saved.holiday);
+    if (saved && Number.isFinite(saved.fetchedAt) && Date.now() >= saved.fetchedAt && Date.now() - saved.fetchedAt < 24 * 60 * 60 * 1000 && cachedMap) {
+      holidayCache[year] = cachedMap;
       return holidayCache[year];
     }
   } catch(e) {}
   try {
     const response = await fetch(`https://timor.tech/api/holiday/year/${year}/?type=Y&week=Y`, { cache: 'no-store' });
+    if (!response.ok) throw new Error('holiday request failed');
     const data = await response.json();
-    if (data.code !== 0 || !data.holiday) throw new Error('holiday data unavailable');
-    holidayCache[year] = data.holiday;
-    localStorage.setItem(cacheKey, JSON.stringify({ holiday: data.holiday, fetchedAt: Date.now() }));
-    return data.holiday;
+    const cleanMap = data && data.code === 0 ? cleanHolidayMap(data.holiday) : null;
+    if (!cleanMap) throw new Error('holiday data unavailable');
+    holidayCache[year] = cleanMap;
+    try { localStorage.setItem(cacheKey, JSON.stringify({ holiday: cleanMap, fetchedAt: Date.now() })); } catch(e) {}
+    return cleanMap;
   } catch(e) {
     holidayCache[year] = null;
     return null;
@@ -1579,7 +1683,7 @@ async function renderCalendar() {
     let mark = workType.holiday ? '休' : (workType.makeup ? '班' : '');
     if (d === state.payDay) mark = '💰';
 
-    grid.innerHTML += `<div class="${cls}" title="${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')} · ${workType.name}">
+    grid.innerHTML += `<div class="${cls}" title="${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')} · ${escapeHTML(workType.name)}">
       <span>${d}</span>
       <span class="cal-mark">${mark}</span>
     </div>`;
@@ -1628,8 +1732,8 @@ function renderGoals() {
     list.innerHTML += `
       <div class="goal-card current">
         <div class="goal-head">
-          <span class="goal-icon">${g.icon}</span>
-          <span class="goal-name">${g.name}</span>
+          <span class="goal-icon">${escapeHTML(g.icon)}</span>
+          <span class="goal-name">${escapeHTML(g.name)}</span>
           <span class="goal-pct-big">${pct}%</span>
           <button class="item-actions" aria-label="删除目标" onclick="deleteGoal(${i})">删除</button>
         </div>
@@ -1653,10 +1757,12 @@ function switchGoalTab(btn, tab) {
 }
 function addGoal() {
   const name = prompt('目标名称（如：去冰岛看极光）：');
-  if (!name) return;
+  if (!name || !name.trim()) return;
+  if (name.trim().length > 80) { toast('目标名称请控制在80个字符以内'); return; }
+  if (state.goals.length >= 100) { toast('目标最多保存100项'); return; }
   const amount = parseFloat(prompt('目标金额（元）：'));
-  if (amount > 0) {
-    state.goals.push({ name, target: amount, saved: 0, icon: '🎯' });
+  if (Number.isFinite(amount) && amount > 0 && amount <= 1000000000) {
+    state.goals.push({ name: name.trim(), target: amount, saved: 0, icon: '🎯' });
     save(); renderGoals(); renderHome();
     toast('目标已添加');
   }
@@ -1665,6 +1771,7 @@ function calcWorkDays() {
   const price = parseFloat(document.getElementById('calcPrice').value);
   if (!price || price <= 0) return;
   const daily = state.monthlySalary / 21.75;
+  if (!Number.isFinite(daily) || daily <= 0) { toast('请先在设置中填写大于0的月薪'); return; }
   const days = Math.ceil(price / daily);
   document.getElementById('calcResult').style.display = 'block';
   document.getElementById('calcDays').textContent = days + ' 天';
@@ -1673,11 +1780,25 @@ function calcWorkDays() {
 
 // ===== 设置 =====
 function saveSettings() {
-  state.monthlySalary = parseFloat(document.getElementById('setSalary').value) || 15000;
-  state.workStart = document.getElementById('setStart').value;
-  state.workEnd = document.getElementById('setEnd').value;
-  state.lunchBreak = parseFloat(document.getElementById('setLunch').value) || 1;
-  state.payDay = parseInt(document.getElementById('setPayday').value) || 10;
+  const salary = Number(document.getElementById('setSalary').value);
+  const workStart = document.getElementById('setStart').value;
+  const workEnd = document.getElementById('setEnd').value;
+  const lunchBreak = Number(document.getElementById('setLunch').value);
+  const payDay = Number(document.getElementById('setPayday').value);
+  const startMins = t2m(workStart), endMins = t2m(workEnd);
+  const shiftMins = endMins > startMins ? endMins - startMins : endMins + 1440 - startMins;
+  if (!Number.isFinite(salary) || salary <= 0 || salary > 10000000 ||
+      !Number.isFinite(lunchBreak) || lunchBreak < 0 || lunchBreak * 60 >= shiftMins ||
+      !Number.isInteger(payDay) || payDay < 1 || payDay > 31 ||
+      !validTime(workStart, null) || !validTime(workEnd, null) || workStart === workEnd) {
+    toast('请检查设置：月薪需大于0且不超过1000万元，午休需短于班次，发薪日为1至31号');
+    return;
+  }
+  state.monthlySalary = salary;
+  state.workStart = workStart;
+  state.workEnd = workEnd;
+  state.lunchBreak = lunchBreak;
+  state.payDay = payDay;
   save(); renderHome(); renderCalendar();
   toast('设置已保存');
 }
