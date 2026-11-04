@@ -259,6 +259,11 @@
   .drink-name { color: #5D4E37; }
   .drink-mins { color: var(--ink-light); font-size: 11px; }
   .drink-cost { color: var(--red); font-weight: 600; }
+  .drink-reference-note { margin: -3px 0 6px; color: var(--ink-light); font-size: 10px; }
+  .drink-reference-row .drink-name { flex: 1; min-width: 0; }
+  .drink-reference-price { color: var(--ink-light); font-size: 11px; white-space: nowrap; }
+  .drink-remove { flex-shrink: 0; border: 1px solid #E6CFD4; border-radius: 999px; background: #FFF8FA; color: #9A6375; padding: 3px 8px; font: inherit; font-size: 10px; cursor: pointer; }
+  .drink-remove:hover { color: var(--red); border-color: var(--red); }
 
   /* 摸鱼 */
   .slack-total {
@@ -819,12 +824,13 @@
 
       <hr class="divider">
 
-      <div class="sec-label">午休与饮品</div>
+      <div class="sec-label">午休与饮品换算</div>
+      <div class="drink-reference-note">饮品价格仅用于换算上班时长，不计入今日花销</div>
       <div id="homeDrinkList">
         <div class="drink-row" id="lunchSummary"></div>
       </div>
       <button class="activity-btn" id="lunchControlBtn" onclick="toggleLunch()">▶ 开始午休计时</button>
-      <button class="add-btn" onclick="openDrinkModal()">+ 记一杯奶茶/咖啡</button>
+      <button class="add-btn" onclick="openDrinkModal()">+ 添加换算参考</button>
 
       <hr class="divider">
 
@@ -1062,10 +1068,10 @@
 <!-- 饮品弹层 -->
 <div class="modal-overlay" id="drinkModal">
   <div class="modal-sheet">
-    <div class="modal-title">喝杯咖啡 ☕</div>
+    <div class="modal-title">添加饮品换算参考 ☕</div>
     <div class="drink-grid" id="drinkGrid"></div>
     <p style="font-size:11px; color:var(--ink-light); text-align:center; margin-bottom:16px;">
-      每一杯都换算成工时，下单前先算算
+      选择饮品价格，看看相当于多少上班时间；这里只做换算，不会记账。
     </p>
     <button class="save-btn" onclick="closeDrinkModal()">关闭</button>
   </div>
@@ -1359,9 +1365,10 @@ function renderHome() {
   state.drinks.forEach(d => {
     const rate = hourlyRate();
     const mins = rate > 0 ? Math.round(d.price / rate * 60) : 0;
-    drEl.innerHTML += `<div class="drink-row">
+    drEl.innerHTML += `<div class="drink-row drink-reference-row">
       <span class="drink-name">🥤 ${escapeHTML(d.name)} ≈${mins}分钟班</span>
-      <span class="drink-cost">-¥${d.price.toFixed(0)}</span>
+      <span class="drink-reference-price">参考价 ¥${d.price.toFixed(0)}</span>
+      <button class="drink-remove" aria-label="移除${escapeHTML(d.name)}换算参考" onclick="removeDrink(${state.drinks.indexOf(d)})">移除</button>
     </div>`;
   });
 
@@ -1509,6 +1516,12 @@ function pickDrink(name, price) {
   const rate = hourlyRate();
   const mins = rate > 0 ? Math.round(price / rate * 60) : 0;
   toast(`${name} = 上班${mins}分钟`);
+}
+function removeDrink(index) {
+  if (!Number.isInteger(index) || index < 0 || index >= state.drinks.length) return;
+  const [removed] = state.drinks.splice(index, 1);
+  save(); renderHome();
+  toast(`已移除${removed.name}换算参考`);
 }
 
 // ===== 摸鱼 =====
