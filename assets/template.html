@@ -1664,14 +1664,27 @@ function filterTodo(btn, f) {
 
 // ===== 今日消费账本 =====
 let editingExpenseIndex = null;
+function renderExpenseCategoryOptions(selected = '其他') {
+  const select = document.getElementById('expenseCategory');
+  const custom = new Set();
+  [...state.expenses, ...state.dailyHistory.flatMap(day => day.expenses || [])].forEach(item => {
+    if (item.category && !EXPENSE_CATEGORIES.includes(item.category)) custom.add(item.category);
+  });
+  const builtins = [
+    ['其他','✳️ 其他'],['餐饮','🍜 餐饮'],['通勤','🚌 通勤'],['居住','🏠 居住'],
+    ['日用','🧻 日用'],['娱乐','🎬 娱乐'],['健康','💊 健康']
+  ];
+  select.innerHTML = builtins.map(([value,label]) => `<option value="${escapeHTML(value)}">${label}</option>`).join('') +
+    [...custom].sort((a,b) => a.localeCompare(b,'zh-CN')).map(value => `<option value="${escapeHTML(value)}">✳️ ${escapeHTML(value)}</option>`).join('');
+  select.value = [...custom].includes(selected) || EXPENSE_CATEGORIES.includes(selected) ? selected : '其他';
+}
 function openExpenseModal(index = null) {
   editingExpenseIndex = index;
   const existing = Number.isInteger(index) ? state.expenses[index] : null;
   document.getElementById('expenseName').value = existing ? existing.name : '';
   document.getElementById('expenseAmount').value = existing ? existing.amount : '';
-  const builtin = existing && EXPENSE_CATEGORIES.includes(existing.category);
-  document.getElementById('expenseCategory').value = !existing || builtin ? (existing ? existing.category : '其他') : '其他';
-  document.getElementById('expenseCustomCategory').value = existing && !builtin ? existing.category : '';
+  renderExpenseCategoryOptions(existing ? existing.category : '其他');
+  document.getElementById('expenseCustomCategory').value = '';
   updateExpenseCategoryFields();
   document.querySelector('#expenseModal .modal-title').textContent = existing ? '修改这笔消费' : '记一笔今日消费';
   document.querySelector('#expenseModal .save-btn').textContent = existing ? '保存修改' : '保存这笔消费';
