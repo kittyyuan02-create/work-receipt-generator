@@ -248,22 +248,17 @@
   }
   .add-btn:hover { color: var(--accent); }
 
-  /* 饮品 */
-  .drink-row {
+  /* 午休摘要 */
+  .lunch-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 5px 0;
     font-size: 12px;
   }
-  .drink-name { color: #5D4E37; }
-  .drink-mins { color: var(--ink-light); font-size: 11px; }
-  .drink-cost { color: var(--red); font-weight: 600; }
-  .drink-reference-note { margin: -3px 0 6px; color: var(--ink-light); font-size: 10px; }
-  .drink-reference-row .drink-name { flex: 1; min-width: 0; }
-  .drink-reference-price { color: var(--ink-light); font-size: 11px; white-space: nowrap; }
-  .drink-remove { flex-shrink: 0; min-height: 36px; border: 1px solid #E6CFD4; border-radius: 999px; background: #FFF8FA; color: #9A6375; padding: 6px 12px; font: inherit; font-size: 12px; cursor: pointer; }
-  .drink-remove:hover, .drink-remove:focus-visible { color: var(--red); border-color: var(--red); outline: 2px solid #E9A8BC; outline-offset: 2px; }
+  .lunch-name { color: #5D4E37; }
+  .lunch-mins { color: var(--ink-light); font-size: 11px; }
+  .lunch-cost { color: var(--red); font-weight: 600; }
 
   /* 摸鱼 */
   .slack-total {
@@ -615,6 +610,11 @@
   .history-list { display:grid; gap:8px; }
   .history-row { display:flex; justify-content:space-between; gap:10px; padding:10px 12px; border-radius:8px; background:var(--card); color:var(--ink-light); font-size:12px; }
   .history-row strong { color:var(--ink); }
+  .history-day { border-radius:8px; background:var(--card); overflow:hidden; }
+  .history-day > summary { cursor:pointer; list-style:none; align-items:center; }
+  .history-day > summary::-webkit-details-marker { display:none; }
+  .history-expense-list { padding:0 12px 8px; }
+  .history-expense-row { display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-top:1px dashed #D8CBB8; font-size:11px; color:var(--ink-light); }
 
   /* ===== 摸鱼弹层 ===== */
   .modal-overlay {
@@ -675,26 +675,16 @@
     margin-bottom: 20px;
   }
 
-  /* 饮品选择网格 */
-  .drink-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin-bottom: 16px;
-  }
-  .drink-option {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 12px 6px;
-    background: var(--card);
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .drink-emoji { font-size: 28px; margin-bottom: 6px; }
-  .drink-label { font-size: 11px; color: var(--ink); }
+  .expense-preview { min-height: 20px; margin: 8px 0 2px; color: var(--ink-light); font-size: 12px; text-align: center; }
+  .expense-summary { display:flex; justify-content:space-between; align-items:flex-end; gap:12px; margin:8px 0 12px; }
+  .expense-total { color:var(--red); font-size:24px; font-weight:700; }
+  .expense-time { color:var(--ink-light); font-size:12px; text-align:right; }
+  .expense-row { display:flex; align-items:center; gap:8px; padding:10px 0; border-bottom:1px dashed #E6D9C5; }
+  .expense-item { flex:1; min-width:0; }
+  .expense-item strong { display:block; color:var(--ink); font-size:13px; overflow-wrap:anywhere; }
+  .expense-meta { color:var(--ink-light); font-size:11px; margin-top:3px; }
+  .expense-amount { color:var(--red); font-size:13px; font-weight:700; white-space:nowrap; }
+  .expense-delete { border:0; background:transparent; color:var(--ink-light); padding:8px; cursor:pointer; font:inherit; font-size:11px; }
 
   /* toast */
   .toast {
@@ -832,13 +822,20 @@
 
       <hr class="divider">
 
-      <div class="sec-label">午休与饮品换算</div>
-      <div class="drink-reference-note">饮品价格仅用于换算上班时长，不计入今日花销</div>
-      <div id="homeDrinkList">
-        <div class="drink-row" id="lunchSummary"></div>
+      <div class="sec-label">今日消费账本</div>
+      <div class="settings-hint">记下真实支出，看看它大约对应多少工作时间。记录仅保存在本地。</div>
+      <div class="expense-summary">
+        <div><div class="ti-label">今日已记录支出</div><div class="expense-total" id="expenseTotal">¥0.00</div></div>
+        <div class="expense-time" id="expenseTimeCost">设置月薪后<br>显示折合工时</div>
       </div>
+      <div id="homeExpenseList"><div class="empty-state">还没有消费记录，喝水也可以不记；想记时再添加。</div></div>
+      <button class="add-btn" onclick="openExpenseModal()">＋ 记一笔消费</button>
+
+      <hr class="divider">
+
+      <div class="sec-label">午休计时</div>
+      <div class="lunch-row" id="lunchSummary"><span class="lunch-name">🍚 午休</span><span class="lunch-mins">0分钟</span><span class="lunch-cost">待开始</span></div>
       <button class="activity-btn" id="lunchControlBtn" onclick="toggleLunch()">▶ 开始午休计时</button>
-      <button class="add-btn" onclick="openDrinkModal()">+ 添加换算参考</button>
 
       <hr class="divider">
 
@@ -868,6 +865,7 @@
     </div>
 
     <button class="share-export" onclick="exportTodayReceipt()">📸 生成今日手帐贴纸小票</button>
+    <div class="settings-hint" style="text-align:center">分享图会包含今日消费项目和金额，发朋友圈前记得检查隐私。</div>
     <div class="share-note">图片在本地生成；发朋友圈前记得检查展示内容</div>
 
     <div class="setup-note" id="setupNudge" style="display:none">第一次使用，先填写月薪和作息，收入才会按你的情况计算。<button onclick="openSettingsPage()">去设置</button></div>
@@ -1096,15 +1094,33 @@
   </div>
 </div>
 
-<!-- 饮品弹层 -->
-<div class="modal-overlay" id="drinkModal">
+<!-- 记账弹层 -->
+<div class="modal-overlay" id="expenseModal">
   <div class="modal-sheet">
-    <div class="modal-title">添加饮品换算参考 ☕</div>
-    <div class="drink-grid" id="drinkGrid"></div>
-    <p style="font-size:11px; color:var(--ink-light); text-align:center; margin-bottom:16px;">
-      选择饮品价格，看看相当于多少上班时间；这里只做换算，不会记账。
-    </p>
-    <button class="save-btn" onclick="closeDrinkModal()">关闭</button>
+    <div class="modal-title">记一笔今日消费</div>
+    <div class="form-group">
+      <label class="form-label" for="expenseAmount">金额（元）</label>
+      <input class="form-input" id="expenseAmount" type="number" min="0.01" max="1000000" step="0.01" inputmode="decimal" placeholder="0.00">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="expenseName">项目名称</label>
+      <input class="form-input" id="expenseName" maxlength="80" placeholder="例如：午饭、地铁、日用品">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="expenseCategory">类别</label>
+      <select class="form-input" id="expenseCategory">
+        <option value="其他" selected>✳️ 其他</option><option value="餐饮">🍜 餐饮</option>
+        <option value="通勤">🚌 通勤</option><option value="居住">🏠 居住</option>
+        <option value="日用">🧻 日用</option><option value="娱乐">🎬 娱乐</option><option value="健康">💊 健康</option>
+      </select>
+    </div>
+    <div class="form-group" id="expenseCustomCategoryWrap">
+      <label class="form-label" for="expenseCustomCategory">自定义“其他”类别（可不填）</label>
+      <input class="form-input" id="expenseCustomCategory" maxlength="20" placeholder="例如：宠物、学习、人情">
+    </div>
+    <div class="expense-preview" id="expensePreview">填入金额后，显示大约对应的工作时间</div>
+    <button class="save-btn" onclick="addExpense()">保存这笔消费</button>
+    <button class="save-btn secondary-btn" onclick="closeExpenseModal()">取消</button>
   </div>
 </div>
 
@@ -1127,11 +1143,8 @@ let state = {
   workSessions: [],
   dailyDate: localDateKey(new Date()),
   dailyHistory: [],
+  expenses: [],
   todos: [],
-  drinks: [
-    { name: '拿铁', price: 22 },
-    { name: '珍珠奶茶', price: 18 }
-  ],
   slackRecords: [],
   goals: [],
   currentSlack: null,
@@ -1143,18 +1156,6 @@ let state = {
   calOffset: 0,
   todoFilter: 'all'
 };
-
-const DRINK_PRESETS = [
-  { name: '美式', emoji: '☕', price: 15 },
-  { name: '拿铁', emoji: '🥛', price: 22 },
-  { name: '卡布奇诺', emoji: '☕', price: 24 },
-  { name: '摩卡', emoji: '🍫', price: 26 },
-  { name: '抹茶拿铁', emoji: '🍵', price: 28 },
-  { name: '生椰拿铁', emoji: '🥥', price: 26 },
-  { name: '馥芮白', emoji: '☕', price: 29 },
-  { name: '焦糖玛奇朵', emoji: '🍮', price: 28 },
-  { name: '香草拿铁', emoji: '🍦', price: 25 }
-];
 
 // ===== 工具 =====
 function escapeHTML(value) {
@@ -1183,6 +1184,27 @@ function validDateKey(value) {
   const [year, month, day] = value.split('-').map(Number);
   const date = new Date(year, month - 1, day);
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+const EXPENSE_CATEGORIES = ['餐饮','通勤','居住','日用','娱乐','健康','其他'];
+function normalizeExpense(item) {
+  if (!item || typeof item !== 'object') return null;
+  const amount = Number(item.amount);
+  const name = String(item.name || '').trim().slice(0, 80);
+  if (!name || !Number.isFinite(amount) || amount <= 0 || amount > 1000000) return null;
+  return {
+    id: String(item.id || `${Date.now()}-${Math.random().toString(36).slice(2,8)}`).slice(0, 100),
+    name,
+    category: typeof item.category === 'string' && item.category.trim() && item.category.length <= 20 ? item.category.trim() : '其他',
+    amount: Math.round(amount * 100) / 100,
+    createdAt: validDate(item.createdAt) ? validDate(item.createdAt).toISOString() : new Date().toISOString()
+  };
+}
+function expenseSum(expenses = state.expenses) {
+  return expenses.reduce((sum, item) => sum + finiteNumber(item.amount, 0, 0, 1000000), 0);
+}
+function expenseWorkMinutes(amount) {
+  const rate = hourlyRate();
+  return rate > 0 ? Math.round(amount / rate * 60) : null;
 }
 function normalizeState(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
@@ -1220,13 +1242,14 @@ function normalizeState(raw) {
       income: finiteNumber(item.income, 0, 0, 10000000),
       lunchMinutes: finiteNumber(item.lunchMinutes, 0, 0, 1440),
       slackMinutes: finiteNumber(item.slackMinutes, 0, 0, 1440),
-      completedTodos: Array.isArray(item.completedTodos) ? item.completedTodos.slice(0, 300).map(todo => String(todo).slice(0, 160)) : []
+        expenseTotal: finiteNumber(item.expenseTotal, 0, 0, 10000000),
+        expenseCount: Math.round(finiteNumber(item.expenseCount, 0, 0, 500)),
+        expenses: Array.isArray(item.expenses) ? item.expenses.slice(0, 500).map(expense => normalizeExpense(expense)).filter(Boolean) : [],
+        completedTodos: Array.isArray(item.completedTodos) ? item.completedTodos.slice(0, 300).map(todo => String(todo).slice(0, 160)) : []
     } : null),
+      expenses: list(raw.expenses, base.expenses, 500, expense => normalizeExpense(expense)),
     todos: list(raw.todos, base.todos, 300, item => item && typeof item === 'object' ? {
       text: text(item.text, 160), done: item.done === true, cat: item.cat === 'life' ? 'life' : 'work'
-    } : null),
-    drinks: list(raw.drinks, base.drinks, 40, item => item && typeof item === 'object' ? {
-      name: text(item.name, 40), price: finiteNumber(item.price, 0, 0, 5000)
     } : null),
     slackRecords: list(raw.slackRecords, base.slackRecords, 250, item => item && typeof item === 'object' ? {
       type: ['toilet', 'phone', 'chat', 'walk'].includes(item.type) ? item.type : 'phone',
@@ -1287,12 +1310,14 @@ function rolloverToToday() {
     end: session.end > boundary ? boundary : session.end
   })).filter(session => session.end > session.start);
   const completedTodos = state.todos.filter(todo => todo.done).map(todo => todo.text);
+  const expenses = state.expenses.slice();
+  const expenseTotal = expenseSum(expenses);
   const lunchMinutes = (state.lunchRecords || []).reduce((sum, record) => sum + record.minutes, 0);
   const slackMinutes = (state.slackRecords || []).reduce((sum, record) => sum + record.minutes, 0);
   const completedWorkMinutes = workDur();
   const completedIncome = todayIncome();
-  if (state.clockIn || state.workSessions.length || lunchMinutes || slackMinutes || completedTodos.length) {
-    state.dailyHistory.unshift({ date: state.dailyDate, workMinutes: completedWorkMinutes, income: completedIncome, lunchMinutes, slackMinutes, completedTodos });
+  if (state.clockIn || state.workSessions.length || lunchMinutes || slackMinutes || completedTodos.length || expenses.length) {
+    state.dailyHistory.unshift({ date: state.dailyDate, workMinutes: completedWorkMinutes, income: completedIncome, lunchMinutes, slackMinutes, completedTodos, expenseTotal, expenseCount: expenses.length, expenses });
     state.dailyHistory = state.dailyHistory.slice(0, 90);
   }
   [state.timerInt, state.slackTimerInt, state.lunchTimerInt].forEach(timer => { if (timer) clearInterval(timer); });
@@ -1303,6 +1328,7 @@ function rolloverToToday() {
   state.currentSlack = state.currentLunch = null;
   state.slackRecords = [];
   state.lunchRecords = [];
+  state.expenses = [];
   state.todos = state.todos.filter(todo => !todo.done);
   state.dailyDate = today;
   save();
@@ -1351,7 +1377,8 @@ function fmtTime(d) {
 function exportTodayReceipt() {
   if (!(state.monthlySalary > 0)) { toast('先设置月薪，才能生成收入小票'); openSettingsPage(); return; }
   const width=1080, now=new Date(), done=state.todos.filter(item=>item.done), records=state.slackRecords||[];
-  const height=1600+Math.max(records.length-1,0)*58+Math.max(done.length-1,0)*54;
+  const expenses=state.expenses||[];
+  const height=1850+records.length*58+expenses.length*58+done.length*54;
   if (height > 16000) { toast('记录较多，请减少部分条目后再导出长图'); return; }
   const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
   const ctx=canvas.getContext('2d');
@@ -1401,6 +1428,10 @@ function exportTodayReceipt() {
     if(!records.length){pill(270,y-28,'今天还没有摸鱼记录','#F4F0F4');y+=58;}
     records.forEach(record=>{const names={toilet:'带薪如厕',phone:'刷手机',chat:'闲聊',walk:'到处溜达'};const icons={toilet:'🚽',phone:'📱',chat:'💬',walk:'🚶'};const amount=record.minutes*hourlyRate()/60;rounded(250,y-32,580,46,15,'#F5F0FA','#FFFFFF');ctx.font=textFont;ctx.textAlign='left';ctx.fillStyle='#6E596D';ctx.fillText(`${icons[record.type]||'🐟'} ${names[record.type]||'摸鱼'} · ${m2text(record.minutes)}`,270,y-2);ctx.textAlign='right';ctx.fillStyle='#D75E87';ctx.fillText(`+¥${amount.toFixed(2)}`,810,y-2);y+=58;});
     divider(y+5);y+=68;
+    ctx.textAlign='left';ctx.font=boldFont;ctx.fillStyle='#704F60';ctx.fillText(`今日消费　¥${expenseSum(expenses).toFixed(2)}`,258,y);sticker(792,y-10,'🧾',28,'#FFF8D9');y+=48;
+    if(!expenses.length){pill(270,y-26,'今天还没有消费记录','#F4F7EC');y+=54;}
+    expenses.forEach((item,i)=>{const mins=expenseWorkMinutes(item.amount);rounded(250,y-31,580,44,14,i%2?'#F3F7EC':'#FFF6E8','#FFFFFF');ctx.textAlign='left';ctx.font=textFont;ctx.fillStyle='#6C5960';ctx.fillText(`${clip(item.name,300)} · ${item.category}`,270,y-2);ctx.textAlign='right';ctx.fillText(`−¥${item.amount.toFixed(2)}${mins===null?'':` · ${m2text(mins)}`}`,810,y-2);y+=54;});
+    divider(y+8);y+=66;
     ctx.textAlign='left';ctx.font=boldFont;ctx.fillStyle='#704F60';ctx.fillText(`今天完成了 ${done.length} 件小事`,258,y);sticker(792,y-10,'⭐',28,'#FFF8D9');y+=48;
     if(!done.length){pill(270,y-26,'待办还没勾选，明天继续加油','#F4F7EC');y+=54;}
     done.forEach((item,i)=>{rounded(250,y-31,580,44,14,i%2?'#F3F7EC':'#FFF6E8','#FFFFFF');ctx.textAlign='left';ctx.font=textFont;ctx.fillStyle='#6C5960';ctx.fillText(`✓  ${clip(item.text,510)}`,270,y-2);sticker(791,y-9,'🌼',25,'#FFFFFF');y+=54;});
@@ -1466,25 +1497,7 @@ function renderHome() {
       </div>`;
   });
 
-  // 饮品
-  const drEl = document.getElementById('homeDrinkList');
-  const lunchMins = lunchDurationMinutes();
-  const lunchPay = state.lunchPaid ? lunchMins * hourlyRate() / 60 : 0;
-  drEl.innerHTML = `<div class="drink-row">
-    <span class="drink-name">🍚 午休</span>
-    <span class="drink-mins">${m2text(lunchMins)}</span>
-    <span class="drink-cost">${state.lunchPaid ? `计薪 ¥${lunchPay.toFixed(2)}` : '不计薪'}</span>
-  </div>`;
-  state.drinks.forEach(d => {
-    const rate = hourlyRate();
-    const mins = rate > 0 ? Math.round(d.price / rate * 60) : 0;
-    const durationText = rate > 0 ? `≈${mins}分钟班` : '设置薪资后换算';
-    drEl.innerHTML += `<div class="drink-row drink-reference-row">
-      <span class="drink-name">🥤 ${escapeHTML(d.name)} ${durationText}</span>
-      <span class="drink-reference-price">参考价 ¥${d.price.toFixed(0)}</span>
-      <button class="drink-remove" aria-label="移除${escapeHTML(d.name)}换算参考" onclick="removeDrink(${state.drinks.indexOf(d)})">移除</button>
-    </div>`;
-  });
+  renderExpenses();
 
   // 摸鱼
   let sTotal = 0;
@@ -1543,6 +1556,25 @@ function renderHome() {
     btn.textContent = '▶ 上班打卡';
     btn.className = 'clock-btn start';
   }
+}
+
+function renderExpenses() {
+  const list = document.getElementById('homeExpenseList');
+  if (!list) return;
+  const total = expenseSum();
+  const minutes = expenseWorkMinutes(total);
+  document.getElementById('expenseTotal').textContent = `¥${total.toFixed(2)}`;
+  document.getElementById('expenseTimeCost').innerHTML = minutes === null
+    ? '设置月薪后<br>显示折合工时'
+    : total <= 0 ? '记下第一笔后<br>显示折合工时'
+    : `大约相当于<br><strong>${m2text(minutes)}</strong>工作`;
+  list.innerHTML = state.expenses.length ? state.expenses.map((item, index) => `
+    <div class="expense-row">
+      <div class="expense-item"><strong>${escapeHTML(item.name)}</strong><div class="expense-meta">${escapeHTML(item.category)} · ${new Date(item.createdAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div></div>
+      <span class="expense-amount">−¥${item.amount.toFixed(2)}</span>
+      <button class="expense-delete" aria-label="修改${escapeHTML(item.name)}记录" onclick="editExpense(${index})">修改</button>
+      <button class="expense-delete" aria-label="删除${escapeHTML(item.name)}记录" onclick="deleteExpense(${index})">删除</button>
+    </div>`).join('') : '<div class="empty-state">还没有消费记录，喝水也可以不记；想记时再添加。</div>';
 }
 
 // ===== 打卡 =====
@@ -1630,33 +1662,62 @@ function filterTodo(btn, f) {
   renderTodoFull();
 }
 
-// ===== 饮品 =====
-function openDrinkModal() {
-  const grid = document.getElementById('drinkGrid');
-  grid.innerHTML = '';
-  DRINK_PRESETS.forEach(d => {
-    grid.innerHTML += `
-      <button class="drink-option" onclick="pickDrink('${d.name}', ${d.price})">
-        <span class="drink-emoji">${d.emoji}</span>
-        <span class="drink-label">${d.name}</span>
-      </button>`;
-  });
-  document.getElementById('drinkModal').classList.add('active');
+// ===== 今日消费账本 =====
+let editingExpenseIndex = null;
+function openExpenseModal(index = null) {
+  editingExpenseIndex = index;
+  const existing = Number.isInteger(index) ? state.expenses[index] : null;
+  document.getElementById('expenseName').value = existing ? existing.name : '';
+  document.getElementById('expenseAmount').value = existing ? existing.amount : '';
+  const builtin = existing && EXPENSE_CATEGORIES.includes(existing.category);
+  document.getElementById('expenseCategory').value = !existing || builtin ? (existing ? existing.category : '其他') : '其他';
+  document.getElementById('expenseCustomCategory').value = existing && !builtin ? existing.category : '';
+  updateExpenseCategoryFields();
+  document.querySelector('#expenseModal .modal-title').textContent = existing ? '修改这笔消费' : '记一笔今日消费';
+  document.querySelector('#expenseModal .save-btn').textContent = existing ? '保存修改' : '保存这笔消费';
+  updateExpensePreview();
+  document.getElementById('expenseModal').classList.add('active');
+  document.getElementById('expenseAmount').focus();
 }
-function closeDrinkModal() { document.getElementById('drinkModal').classList.remove('active'); }
-function pickDrink(name, price) {
-  if (state.drinks.length >= 40) { toast('饮品记录最多保存40项'); return; }
-  state.drinks.push({ name, price });
-  save(); renderHome(); closeDrinkModal();
-  const rate = hourlyRate();
-  if (rate > 0) toast(`${name} = 上班${Math.round(price / rate * 60)}分钟`);
-  else toast('先设置月薪，再计算饮品对应的工时');
+function closeExpenseModal() { document.getElementById('expenseModal').classList.remove('active'); }
+function editExpense(index) { if (index >= 0 && index < state.expenses.length) openExpenseModal(index); }
+function updateExpenseCategoryFields() {
+  document.getElementById('expenseCustomCategoryWrap').style.display = document.getElementById('expenseCategory').value === '其他' ? 'block' : 'none';
 }
-function removeDrink(index) {
-  if (!Number.isInteger(index) || index < 0 || index >= state.drinks.length) return;
-  const [removed] = state.drinks.splice(index, 1);
-  save(); renderHome();
-  toast(`已移除${removed.name}换算参考`);
+function updateExpensePreview() {
+  const amount = Number(document.getElementById('expenseAmount').value);
+  const preview = document.getElementById('expensePreview');
+  const minutes = expenseWorkMinutes(amount);
+  preview.textContent = !Number.isFinite(amount) || amount <= 0
+    ? '填入金额后，显示大约对应的工作时间'
+    : minutes === null ? '先设置月薪后即可换算工作时间' : `¥${amount.toFixed(2)} 大约相当于 ${m2text(minutes)}工作`;
+}
+function addExpense() {
+  if (editingExpenseIndex === null && state.expenses.length >= 200) { toast('今日记录已达上限，请先整理记录'); return; }
+  const amount = Number(document.getElementById('expenseAmount').value);
+  const name = document.getElementById('expenseName').value.trim().slice(0, 80);
+  const selectedCategory = document.getElementById('expenseCategory').value;
+  const customCategory = document.getElementById('expenseCustomCategory').value.trim().slice(0, 20);
+  const category = selectedCategory === '其他' && customCategory ? customCategory : selectedCategory;
+  if (!name) { toast('写一下这笔钱花在了什么上'); document.getElementById('expenseName').focus(); return; }
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 1000000) { toast('请输入0.01至100万元之间的金额'); return; }
+  const record = normalizeExpense({ name, amount, category, createdAt: new Date().toISOString() });
+  if (!record) { toast('这笔记录无法保存，请检查内容'); return; }
+  if (editingExpenseIndex !== null && state.expenses[editingExpenseIndex]) {
+    record.id = state.expenses[editingExpenseIndex].id;
+    record.createdAt = state.expenses[editingExpenseIndex].createdAt;
+    state.expenses[editingExpenseIndex] = record;
+  } else state.expenses.unshift(record);
+  editingExpenseIndex = null;
+  save(); renderExpenses(); closeExpenseModal();
+  const mins = expenseWorkMinutes(record.amount);
+  toast(mins === null ? '已记下这笔消费' : `已记下，约相当于${m2text(mins)}工作`);
+}
+function deleteExpense(index) {
+  if (!Number.isInteger(index) || index < 0 || index >= state.expenses.length) return;
+  const [removed] = state.expenses.splice(index, 1);
+  save(); renderExpenses();
+  toast(`已删除「${removed.name}」`);
 }
 
 // ===== 摸鱼 =====
@@ -1691,7 +1752,7 @@ function toggleLunch() {
   state.lunchTimerInt = setInterval(() => {
     const mins = (Date.now() - new Date(state.currentLunch.start)) / 60000;
     const lunchText = state.lunchPaid ? `计薪 ¥${(mins * hourlyRate()/60).toFixed(2)}` : '不计薪';
-    document.getElementById('lunchSummary').innerHTML = `<span class="drink-name">🍚 午休计时中</span><span class="drink-mins">${m2text(mins)}</span><span class="drink-cost">${lunchText}</span>`;
+    document.getElementById('lunchSummary').innerHTML = `<span class="lunch-name">🍚 午休计时中</span><span class="lunch-mins">${m2text(mins)}</span><span class="lunch-cost">${lunchText}</span>`;
     updateActivityControls();
   }, 1000);
   renderHome();
@@ -1884,10 +1945,13 @@ function renderDailyHistory() {
     return;
   }
   list.innerHTML = entries.map(item => `
-    <div class="history-row">
-      <span><strong>${escapeHTML(item.date)}</strong> · ${m2text(item.workMinutes)} 在岗</span>
-      <span>¥${item.income.toFixed(2)}</span>
-    </div>`).join('');
+    <details class="history-day">
+      <summary class="history-row">
+        <span><strong>${escapeHTML(item.date)}</strong> · ${m2text(item.workMinutes)} 在岗${item.expenseCount ? ` · ${item.expenseCount}笔消费` : ''}</span>
+        <span>收入 ¥${item.income.toFixed(2)}${item.expenseCount ? `<br>支出 ¥${item.expenseTotal.toFixed(2)}` : ''}</span>
+      </summary>
+      ${item.expenses && item.expenses.length ? `<div class="history-expense-list">${item.expenses.map(expense => `<div class="history-expense-row"><span>${escapeHTML(expense.name)} · ${escapeHTML(expense.category)}</span><strong>−¥${expense.amount.toFixed(2)}</strong></div>`).join('')}</div>` : ''}
+    </details>`).join('');
 }
 function findNextHoliday(now) {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -2051,7 +2115,7 @@ function toast(msg) {
 
 // 点击遮罩关闭
 document.getElementById('slackModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeSlackModal(); });
-document.getElementById('drinkModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeDrinkModal(); });
+document.getElementById('expenseModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeExpenseModal(); });
 
 // ===== 初始化 =====
 load();
@@ -2062,13 +2126,15 @@ document.getElementById('setEnd').value = state.workEnd;
 document.getElementById('setLunch').value = state.lunchBreak;
 document.getElementById('setLunchPaid').value = String(state.lunchPaid);
 document.getElementById('setPayday').value = state.payDay;
+document.getElementById('expenseAmount').addEventListener('input', updateExpensePreview);
+document.getElementById('expenseCategory').addEventListener('change', updateExpenseCategoryFields);
 renderHome();
 if (state.isWorking) startTick();
 if (state.currentSlack) state.slackTimerInt = setInterval(updateSlackTimer, 1000);
 if (state.currentLunch) state.lunchTimerInt = setInterval(() => {
   const mins = (Date.now() - new Date(state.currentLunch.start)) / 60000;
   const lunchText = state.lunchPaid ? `计薪 ¥${(mins * hourlyRate()/60).toFixed(2)}` : '不计薪';
-  document.getElementById('lunchSummary').innerHTML = `<span class="drink-name">🍚 午休计时中</span><span class="drink-mins">${m2text(mins)}</span><span class="drink-cost">${lunchText}</span>`;
+  document.getElementById('lunchSummary').innerHTML = `<span class="lunch-name">🍚 午休计时中</span><span class="lunch-mins">${m2text(mins)}</span><span class="lunch-cost">${lunchText}</span>`;
   updateActivityControls();
 }, 1000);
 setInterval(() => {
